@@ -1,0 +1,15 @@
+langgraph
+langchain-google-genai
+langchain-core
+python-docx
+docxtpl
+streamlit
+supabase
+python-dotenv
+pydantic
+pypdf
+openpyxl
+pandas
+langchain-openai
+langchain-anthropic
+langchain-groq
