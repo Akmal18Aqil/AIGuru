@@ -1,12 +1,12 @@
 import json
 import os
 from typing import List
-from src.config.llm_manager import LLMFactory
+from ai_guru.config.llm_manager import LLMFactory
 from langchain_core.messages import HumanMessage
-from src.state import AgentState, Question
-from src.utils.prompts import PROMPT_QUESTION_GENERATOR
+from ai_guru.state import AgentState, Question
+from ai_guru.utils.prompts import PROMPT_QUESTION_GENERATOR
 
-from src.utils.helpers import extract_json
+from ai_guru.utils.helpers import extract_json
 
 def build_questions(state: AgentState) -> AgentState:
     """

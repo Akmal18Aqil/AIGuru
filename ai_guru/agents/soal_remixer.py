@@ -1,12 +1,12 @@
 import json
 import random
 import os
-from src.config.llm_manager import LLMFactory
+from ai_guru.config.llm_manager import LLMFactory
 from langchain_core.messages import HumanMessage
-from src.state import AgentState, Question
-from src.utils.rag_prompts import PROMPT_EXTRACT_QUESTIONS
-from src.utils.helpers import extract_json
-from src.utils.bank_soal import BankSoalService
+from ai_guru.state import AgentState, Question
+from ai_guru.utils.rag_prompts import PROMPT_EXTRACT_QUESTIONS
+from ai_guru.utils.helpers import extract_json
+from ai_guru.utils.bank_soal import BankSoalService
 
 def remix_questions(state: AgentState) -> AgentState:
     """

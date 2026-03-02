@@ -1,12 +1,12 @@
 import json
 import os
-from src.config.llm_manager import LLMFactory
+from ai_guru.config.llm_manager import LLMFactory
 from langchain_core.messages import HumanMessage
-from src.state import AgentState
-from src.utils.prompts import PROMPT_RPP_GENERATOR
+from ai_guru.state import AgentState
+from ai_guru.utils.prompts import PROMPT_RPP_GENERATOR
 
 # Initialize LLM inside function to allow dynamic API key setting
-from src.utils.helpers import extract_json
+from ai_guru.utils.helpers import extract_json
 
 def build_rpp(state: AgentState) -> AgentState:
     """

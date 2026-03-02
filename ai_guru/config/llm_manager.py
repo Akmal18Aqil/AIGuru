@@ -16,7 +16,7 @@ class LLMFactory:
         Returns:
             An instantiated LangChain chat model.
         """
-        from src.config.api_key_manager import APIKeyManager
+        from ai_guru.config.api_key_manager import APIKeyManager
         
         api_manager = APIKeyManager()
         provider_config = api_manager.get_llm_provider_config()

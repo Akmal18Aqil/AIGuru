@@ -8,9 +8,9 @@ import sys
 import os
 
 # Add src to pythonpath
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from src.config.api_key_manager import APIKeyManager
+from ai_guru.config.api_key_manager import APIKeyManager
 
 st.set_page_config(
     page_title="Setup - SiGURU",
@@ -145,7 +145,7 @@ elif st.session_state['setup_step'] == 2:
                 st.error("License Key tidak valid (terlalu pendek)")
             else:
                 with st.spinner("🔍 Memvalidasi license..."):
-                    from src.utils.licensing import LicenseManager
+                    from ai_guru.utils.licensing import LicenseManager
                     manager = LicenseManager()
                     
                     if manager.verify_license(license_input):

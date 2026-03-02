@@ -187,7 +187,7 @@ class APIKeyManager:
                 return {'has_license': False, 'is_valid': False, 'license_key': ''}
             
             # Extract metadata from license key
-            from src.utils.licensing import LicenseManager
+            from ai_guru.utils.licensing import LicenseManager
             manager = LicenseManager()
             
             # Get metadata

@@ -1,14 +1,14 @@
 from langgraph.graph import StateGraph, END
-from src.state import AgentState
-from src.agents.rpp_builder import build_rpp
-from src.agents.soal_builder import build_questions
-from src.agents.doc_formatter import format_document
-from src.agents.jadwal_builder import build_jadwal # Imported
+from ai_guru.state import AgentState
+from ai_guru.agents.rpp_builder import build_rpp
+from ai_guru.agents.soal_builder import build_questions
+from ai_guru.agents.doc_formatter import format_document
+from ai_guru.agents.jadwal_builder import build_jadwal # Imported
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from src.agents.soal_remixer import remix_questions
+from ai_guru.agents.soal_remixer import remix_questions
 
 # Define the graph
 workflow = StateGraph(AgentState)

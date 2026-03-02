@@ -4,12 +4,12 @@ import sys
 import os
 
 # Add src to pythonpath so imports work
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.main_graph import app_graph
-from src.utils.licensing import LicenseManager
-from src.utils.document_loader import load_document_text
-from src.config.api_key_manager import APIKeyManager
+from ai_guru.main_graph import app_graph
+from ai_guru.utils.licensing import LicenseManager
+from ai_guru.utils.document_loader import load_document_text
+from ai_guru.config.api_key_manager import APIKeyManager
 
 st.set_page_config(page_title="SiGURU (AI Assistant)", layout="wide", page_icon="🎓")
 
@@ -30,8 +30,8 @@ if not api_manager.is_setup_completed():
 
 def render_smart_fix(conflict, guru, kelas_to_move, idx):
     """Render smart auto-fix options with validation"""
-    from src.utils.scheduler_logic import find_available_slots
-    from src.utils.conflict_detector import detect_hard_conflicts
+    from ai_guru.utils.scheduler_logic import find_available_slots
+    from ai_guru.utils.conflict_detector import detect_hard_conflicts
     
     df_current = pd.DataFrame(st.session_state['main_jadwal_result'])
     free_slots = find_available_slots(df_current, guru, kelas_to_move)
@@ -69,7 +69,7 @@ def render_smart_fix(conflict, guru, kelas_to_move, idx):
 
 def execute_fix_and_revalidate(conflict, new_hari, new_jam, guru, kelas_to_move):
     """Execute fix and re-validate to ensure no new conflicts"""
-    from src.utils.conflict_detector import detect_hard_conflicts
+    from ai_guru.utils.conflict_detector import detect_hard_conflicts
     
     # 1. Create updated schedule
     updated_jadwal = []

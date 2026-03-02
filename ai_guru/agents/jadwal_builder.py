@@ -1,10 +1,10 @@
 import json
 import os
-from src.config.llm_manager import LLMFactory
+from ai_guru.config.llm_manager import LLMFactory
 from langchain_core.messages import HumanMessage
-from src.state import AgentState
-from src.utils.jadwal_prompts import PROMPT_JADWAL_BUILDER, PROMPT_CONFLICT_CHECKER
-from src.utils.helpers import extract_json
+from ai_guru.state import AgentState
+from ai_guru.utils.jadwal_prompts import PROMPT_JADWAL_BUILDER, PROMPT_CONFLICT_CHECKER
+from ai_guru.utils.helpers import extract_json
 
 
 def build_jadwal(state: AgentState) -> AgentState:
@@ -64,7 +64,7 @@ def check_conflicts(state: AgentState, llm) -> AgentState:
     print("Checking for schedule conflicts...")
     
     # === LAYER 1: Deterministic Hard Conflict Detection ===
-    from src.utils.conflict_detector import detect_hard_conflicts
+    from ai_guru.utils.conflict_detector import detect_hard_conflicts
     hard_conflicts_result = detect_hard_conflicts(state['jadwal_result'])
     
     # === LAYER 2: LLM Soft Conflict Detection ===

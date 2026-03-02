@@ -11,10 +11,10 @@ from dotenv import load_dotenv, set_key
 load_dotenv()
 
 # Add src to pythonpath
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from src.agents.jadwal_builder import build_jadwal
-from src.utils.jadwal_exporter import export_jadwal_to_excel, jadwal_to_dataframe
+from ai_guru.agents.jadwal_builder import build_jadwal
+from ai_guru.utils.jadwal_exporter import export_jadwal_to_excel, jadwal_to_dataframe
 
 st.set_page_config(page_title="📅 Jadwal Ajar", layout="wide")
 
