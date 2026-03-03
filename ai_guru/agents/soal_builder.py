@@ -7,70 +7,80 @@ from ai_guru.state import AgentState, Question
 from ai_guru.utils.prompts import PROMPT_QUESTION_GENERATOR
 
 from ai_guru.utils.helpers import extract_json
+from ai_guru.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 def build_questions(state: AgentState) -> AgentState:
     """
     Node to generate 50 questions in batches.
     """
-    llm = LLMFactory.get_llm(temperature=0.4)  # Optimized: balanced creativity & consistency
-
-    num_q = max(1, state.get('num_questions', 50))
-    question_types = state.get('question_types', ["Pilihan Ganda"])
-    
-    # Fallback if somehow empty
-    if not question_types:
-        question_types = ["Pilihan Ganda"]
+    try:
+        llm = LLMFactory.get_llm(temperature=0.4)
+        num_q = max(1, state.get('num_questions', 50))
+        question_types = state.get('question_types', ["Pilihan Ganda"])
         
-    print(f"Generating {num_q} Questions of types {question_types} for: {state['topic']}")
-    
-    # Distribute questions evenly among selected types
-    base_count = num_q // len(question_types)
-    remainder = num_q % len(question_types)
-
-    batches = []
-    for i, q_type in enumerate(question_types):
-        count = base_count + (1 if i < remainder else 0)
-        if count > 0:
-            batches.append({"type": q_type, "count": count})
-    
-    all_questions: List[Question] = []
-    current_id = 1
-    
-    # Check if RPP exists, otherwise use default
-    if state.get('rpp') and 'tujuan_pembelajaran' in state['rpp']:
-        goals = ", ".join(state['rpp']['tujuan_pembelajaran'])
-    else:
-        goals = "Tidak spesifik"
-
-    for batch in batches:
-        prompt = PROMPT_QUESTION_GENERATOR.format(
-            count=batch['count'],
-            type=batch['type'],
-            topic=state['topic'],
-            grade_level=state['grade_level'],
-            goals=goals
-        )
-        
-        try:
-            response = llm.invoke([HumanMessage(content=prompt)])
-            questions_data = extract_json(response.content)
+        if not question_types:
+            question_types = ["Pilihan Ganda"]
             
-            # Post-process to ensure IDs and structure
-            if isinstance(questions_data, list):
-                for q in questions_data:
-                    q['id'] = current_id
-                    q['type'] = batch['type'] # Ensure type is robust
-                    current_id += 1
-                    all_questions.append(q)
-            else:
-                 print(f"Warning: Batch {batch['type']} returned invalid format (not a list).")
+        logger.info(f"Generating {num_q} Questions for: {state.get('topic', 'Unknown')}")
+        
+        base_count = num_q // len(question_types)
+        remainder = num_q % len(question_types)
+
+        batches = []
+        for i, q_type in enumerate(question_types):
+            count = base_count + (1 if i < remainder else 0)
+            if count > 0:
+                batches.append({"type": q_type, "count": count})
+        
+        all_questions: List[Question] = []
+        current_id = 1
+        
+        # Check if RPP exists
+        goals = "Tidak spesifik"
+        if state.get('rpp') and isinstance(state['rpp'], dict):
+            tujuan = state['rpp'].get('tujuan_pembelajaran', [])
+            if isinstance(tujuan, list) and tujuan:
+                goals = ", ".join(tujuan)
+
+        for batch in batches:
+            prompt = PROMPT_QUESTION_GENERATOR.format(
+                count=batch['count'],
+                type=batch['type'],
+                topic=state.get('topic', ''),
+                grade_level=state.get('grade_level', ''),
+                goals=goals
+            )
+            
+            try:
+                response = llm.invoke([HumanMessage(content=prompt)])
+                if not response or not response.content:
+                    logger.warning(f"Batch {batch['type']} returned empty response.")
+                    continue
+
+                questions_data = extract_json(response.content)
                 
-        except Exception as e:
-            print(f"Error in batch {batch['type']}: {e}")
-            print(f"RAW QUESTION RESPONSE: {response.content}")
-            state['logs'].append(f"Failed to generate {batch['type']}: {str(e)}")
-    
-    state['questions'] = all_questions
-    state['logs'].append(f"Generated {len(all_questions)} questions.")
+                if isinstance(questions_data, list):
+                    for q in questions_data:
+                        q['id'] = current_id
+                        q['type'] = batch['type']
+                        current_id += 1
+                        all_questions.append(q)
+                    logger.info(f"Batch {batch['type']} success: {len(questions_data)} questions.")
+                else:
+                    logger.error(f"Batch {batch['type']} invalid format: {type(questions_data)}")
+                    
+            except Exception as batch_err:
+                logger.error(f"Error in batch {batch['type']}: {str(batch_err)}")
+                state['logs'].append(f"Failed to generate {batch['type']}: AI error.")
+        
+        state['questions'] = all_questions
+        state['logs'].append(f"Generated {len(all_questions)} questions.")
+        logger.info(f"Total questions generated: {len(all_questions)}")
+        
+    except Exception as e:
+        logger.exception(f"Critical error in build_questions: {str(e)}")
+        state['logs'].append(f"Critical error in question builder.")
     
     return state

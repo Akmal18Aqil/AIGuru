@@ -25,9 +25,9 @@ class LicenseManager:
         - SIGURU-[TIER]-[ORG]-[YYYYMMDD]-[CHECKSUM] (production format)
         - Old SIGURU-* pattern (backward compatibility)
         """
-        # 1. Dev/Bypass Mode
-        if license_key == "DEV-MODE-123":
-            return True
+        # 1. Dev/Bypass Mode (DISABLED FOR PRODUCTION)
+        # if license_key == "DEV-MODE-123":
+        #     return True
         
         # 2. New format validation (SIGURU-TIER-ORG-DATE-CHECKSUM)
         if license_key.startswith("SIGURU-"):
@@ -89,14 +89,7 @@ class LicenseManager:
                 'is_valid': bool
             }
         """
-        if license_key == "DEV-MODE-123":
-            return {
-                'tier': 'DEV',
-                'org_id': 'DEV',
-                'expiry_date': None,
-                'days_remaining': 999999,
-                'is_valid': True
-            }
+        # Dev bypass removed for production
         
         if not license_key.startswith("SIGURU-"):
             return {'is_valid': False}

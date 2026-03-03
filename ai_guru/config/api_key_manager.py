@@ -11,7 +11,8 @@ import json
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-import google.generativeai as genai
+from google import genai
+from ai_guru.utils.security_utils import secrets
 
 
 class APIKeyManager:
@@ -50,9 +51,11 @@ class APIKeyManager:
                 for line in f:
                     line = line.strip()
                     if line.startswith('GOOGLE_API_KEY=') and not config['api_key']:
-                        config['api_key'] = line.split('=', 1)[1].strip().strip('"').strip("'")
+                        val = line.split('=', 1)[1].strip().strip('"').strip("'")
+                        config['api_key'] = secrets.decrypt(val)
                     elif line.startswith('API_KEY='):
-                        config['api_key'] = line.split('=', 1)[1].strip().strip('"').strip("'")
+                        val = line.split('=', 1)[1].strip().strip('"').strip("'")
+                        config['api_key'] = secrets.decrypt(val)
                     elif line.startswith('LLM_PROVIDER='):
                         config['provider'] = line.split('=', 1)[1].strip().strip('"').strip("'")
                     elif line.startswith('CUSTOM_BASE_URL='):
@@ -75,6 +78,20 @@ class APIKeyManager:
         # Check LLM provider config
         config = self.get_llm_provider_config()
         if config['api_key'] and config['api_key'] != 'your_api_key_here':
+            # Check if we need to migrate to encrypted version
+            # If the raw value in .env wasn't encrypted, get_llm_provider_config returns it as is.
+            # We can check the source .env file content.
+            raw_key = self._get_raw_key_from_env()
+            if raw_key and not raw_key.startswith("gAAAA"):
+                # Migration triggered: Save again to encrypt
+                print("Migrating API Key to encrypted format...")
+                self._save_to_env(
+                    config['api_key'], 
+                    "", 
+                    config['provider'], 
+                    config['custom_base_url'], 
+                    config['custom_model_name']
+                )
             return config['api_key']
         
         # Priority 2: Check config.json untuk fallback
@@ -220,8 +237,6 @@ class APIKeyManager:
     
     def _mask_license(self, license_key: str) -> str:
         """Mask license key for display"""
-        if license_key == "DEV-MODE-123":
-            return "DEV-MODE-123"
         
         parts = license_key.split('-')
         if len(parts) >= 3:
@@ -244,9 +259,11 @@ class APIKeyManager:
                 with open(self.env_path, 'r', encoding='utf-8') as f:
                     existing_lines = f.readlines()
             
+            encrypted_key = secrets.encrypt(api_key)
+            
             keys_to_update = {
-                'GOOGLE_API_KEY': api_key if provider == 'Google Gemini' else None,
-                'API_KEY': api_key,
+                'GOOGLE_API_KEY': encrypted_key if provider == 'Google Gemini' else None,
+                'API_KEY': encrypted_key,
                 'ORGANIZATION_NAME': organization_name,
                 'LLM_PROVIDER': provider,
                 'CUSTOM_BASE_URL': custom_base_url,
@@ -299,9 +316,11 @@ class APIKeyManager:
         """
         try:
             if provider == 'Google Gemini':
-                genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-2.5-flash')
-                response = model.generate_content("Test")
+                client = genai.Client(api_key=api_key)
+                response = client.models.generate_content(
+                    model='gemini-2.0-flash', 
+                    contents="Test"
+                )
                 return True
             else:
                 # Use the new LLM factory for other providers
@@ -340,6 +359,20 @@ class APIKeyManager:
             print(f"API key validation failed: {e}")
             return False
     
+    def _get_raw_key_from_env(self) -> Optional[str]:
+        """Utility to get the raw un-decrypted value from .env"""
+        if not self.env_path.exists():
+            return None
+        try:
+            with open(self.env_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('API_KEY='):
+                        return line.split('=', 1)[1].strip().strip('"').strip("'")
+            return None
+        except:
+            return None
+
     def reset_setup(self) -> bool:
         """Reset setup configuration (for troubleshooting)"""
         try:

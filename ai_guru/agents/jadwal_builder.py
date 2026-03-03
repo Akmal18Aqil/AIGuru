@@ -5,50 +5,56 @@ from langchain_core.messages import HumanMessage
 from ai_guru.state import AgentState
 from ai_guru.utils.jadwal_prompts import PROMPT_JADWAL_BUILDER, PROMPT_CONFLICT_CHECKER
 from ai_guru.utils.helpers import extract_json
+from ai_guru.utils.logger import get_logger
 
+logger = get_logger(__name__)
 
 def build_jadwal(state: AgentState) -> AgentState:
     """
     Node to generate school-wide teaching schedule.
-    Uses constraint satisfaction approach via LLM.
     """
     if not state.get('jadwal_mode'):
-        print("Skipping Jadwal Builder (Not requested)")
         return state
 
-    print("Generating School Schedule...")
-
-    llm = LLMFactory.get_llm(temperature=0.15)  # Optimized for consistency
-
-    # Format input data for prompt
-    teacher_data = json.dumps(state.get('jadwal_teachers', []), indent=2, ensure_ascii=False)
-    class_data = json.dumps(state.get('jadwal_classes', []), indent=2, ensure_ascii=False)
-    time_slots = state.get('jadwal_time_slots', "Jam 1-8: 07:00-14:00")
-    constraints = state.get('jadwal_constraints', "Tidak ada constraint khusus")
-
-    prompt = PROMPT_JADWAL_BUILDER.format(
-        teacher_data=teacher_data,
-        class_data=class_data,
-        time_slots=time_slots,
-        constraints=constraints
-    )
-
     try:
-        # Internal monologue for better reasoning
-        print("[DEBUG] Analyzing constraints and preparing draft schedule...")
+        logger.info("Generating School Schedule...")
+        llm = LLMFactory.get_llm(temperature=0.15)
+
+        # Format input data
+        teacher_data = json.dumps(state.get('jadwal_teachers', []), indent=2, ensure_ascii=False)
+        class_data = json.dumps(state.get('jadwal_classes', []), indent=2, ensure_ascii=False)
+        time_slots = state.get('jadwal_time_slots', "Jam 1-8")
+        constraints = state.get('jadwal_constraints', "None")
+
+        prompt = PROMPT_JADWAL_BUILDER.format(
+            teacher_data=teacher_data,
+            class_data=class_data,
+            time_slots=time_slots,
+            constraints=constraints
+        )
+
         response = llm.invoke([HumanMessage(content=prompt)])
+        
+        if not response or not response.content:
+            logger.error("Jadwal Builder returned empty response.")
+            state['logs'].append("Error: AI scheduler returned no result.")
+            return state
+
         jadwal_data = extract_json(response.content)
 
         if isinstance(jadwal_data, list):
             state['jadwal_result'] = jadwal_data
-            state['logs'].append(f"Generated {len(jadwal_data)} jadwal entries.")
-
+            state['logs'].append(f"Successfully generated {len(jadwal_data)} entries.")
+            logger.info(f"Jadwal success: {len(jadwal_data)} entries.")
             # Auto-check conflicts
             state = check_conflicts(state, llm)
         else:
-            state['logs'].append("Jadwal generation returned invalid format.")
+            logger.error(f"Jadwal failed: Invalid AI output format.")
+            state['logs'].append("Error: AI scheduler output was malformed.")
+            
     except Exception as e:
-        state['logs'].append(f"Error in Jadwal Builder: {str(e)}")
+        logger.exception(f"Unexpected error in build_jadwal: {str(e)}")
+        state['logs'].append(f"Critical error in schedule builder.")
 
     return state
 
@@ -56,47 +62,47 @@ def build_jadwal(state: AgentState) -> AgentState:
 def check_conflicts(state: AgentState, llm) -> AgentState:
     """
     Sub-function to verify generated schedule for conflicts.
-    Uses hybrid approach: Deterministic + LLM
     """
     if not state.get('jadwal_result'):
         return state
     
-    print("Checking for schedule conflicts...")
-    
-    # === LAYER 1: Deterministic Hard Conflict Detection ===
-    from ai_guru.utils.conflict_detector import detect_hard_conflicts
-    hard_conflicts_result = detect_hard_conflicts(state['jadwal_result'])
-    
-    # === LAYER 2: LLM Soft Conflict Detection ===
-    jadwal_json = json.dumps(state['jadwal_result'], indent=2, ensure_ascii=False)
-    prompt = PROMPT_CONFLICT_CHECKER.format(jadwal_json=jadwal_json)
-    
-    soft_conflicts = []
     try:
-        response = llm.invoke([HumanMessage(content=prompt)])
-        llm_result = extract_json(response.content)
-        soft_conflicts = llm_result.get('warnings', [])
-    except Exception as e:
-        print(f"LLM conflict check failed: {e}")
+        logger.info("Starting conflict detection...")
+        
+        # 1. Deterministic Check
+        from ai_guru.utils.conflict_detector import detect_hard_conflicts
+        hard_conflicts_result = detect_hard_conflicts(state['jadwal_result'])
+        
+        # 2. LLM Soft Check
+        jadwal_json = json.dumps(state['jadwal_result'], indent=2, ensure_ascii=False)
+        prompt = PROMPT_CONFLICT_CHECKER.format(jadwal_json=jadwal_json)
+        
         soft_conflicts = []
-    
-    # === MERGE RESULTS ===
-    merged_conflicts = {
-        'has_conflict': hard_conflicts_result['has_conflict'],
-        'hard_conflicts': hard_conflicts_result['conflicts'],
-        'soft_conflicts': soft_conflicts,
-        'total_hard': len(hard_conflicts_result['conflicts']),
-        'total_soft': len(soft_conflicts)
-    }
-    
-    state['jadwal_conflicts'] = merged_conflicts
-    
-    if hard_conflicts_result['has_conflict']:
-        state['logs'].append(f"🚨 Found {len(hard_conflicts_result['conflicts'])} HARD conflicts (must fix)!")
-    if soft_conflicts:
-        state['logs'].append(f"⚠️ Found {len(soft_conflicts)} soft warnings")
-    if not hard_conflicts_result['has_conflict'] and not soft_conflicts:
-        state['logs'].append("✅ No conflicts detected.")
+        try:
+            response = llm.invoke([HumanMessage(content=prompt)])
+            llm_result = extract_json(response.content)
+            soft_conflicts = llm_result.get('warnings', [])
+        except Exception as llm_err:
+            logger.error(f"Soft conflict check failed: {str(llm_err)}")
+        
+        # Merge
+        merged_conflicts = {
+            'has_conflict': hard_conflicts_result.get('has_conflict', False),
+            'hard_conflicts': hard_conflicts_result.get('conflicts', []),
+            'soft_conflicts': soft_conflicts,
+            'total_hard': len(hard_conflicts_result.get('conflicts', [])),
+            'total_soft': len(soft_conflicts)
+        }
+        
+        state['jadwal_conflicts'] = merged_conflicts
+        
+        if merged_conflicts['total_hard'] > 0:
+            logger.warning(f"Jadwal has {merged_conflicts['total_hard']} hard conflicts.")
+        else:
+            logger.info("Jadwal is conflict-free.")
+            
+    except Exception as e:
+        logger.exception(f"Error in check_conflicts: {str(e)}")
     
     return state
 

@@ -36,9 +36,11 @@ class LLMFactory:
             if 'GOOGLE_API_KEY' not in os.environ or os.environ['GOOGLE_API_KEY'] != api_key:
                 os.environ['GOOGLE_API_KEY'] = api_key
             return ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash", 
+                model="gemini-1.5-flash", # Stable production model
                 temperature=temperature,
-                google_api_key=api_key
+                google_api_key=api_key,
+                max_retries=3,
+                timeout=30.0
             )
             
         elif provider == 'OpenRouter':
@@ -46,8 +48,10 @@ class LLMFactory:
             return ChatOpenAI(
                 base_url="https://openrouter.ai/api/v1",
                 api_key=api_key,
-                model="google/gemini-2.5-flash", # Default for openrouter if no model specified, or we could let user choose
+                model="google/gemini-flash-1.5", 
                 temperature=temperature,
+                max_retries=3,
+                timeout=30.0,
                 default_headers={
                     "HTTP-Referer": "https://siguru.app", # Required for OpenRouter
                     "X-Title": "SiGURU AI Assistant",
@@ -58,8 +62,10 @@ class LLMFactory:
             from langchain_groq import ChatGroq
             return ChatGroq(
                 api_key=api_key,
-                model_name="llama3-70b-8192", # Default groq model
-                temperature=temperature
+                model_name="llama-3.1-70b-versatile", # Updated model
+                temperature=temperature,
+                max_retries=3,
+                timeout=30.0
             )
             
         elif provider == 'Anthropic':
@@ -67,7 +73,9 @@ class LLMFactory:
             return ChatAnthropic(
                 api_key=api_key,
                 model_name="claude-3-5-sonnet-20240620",
-                temperature=temperature
+                temperature=temperature,
+                max_retries=3,
+                timeout=30.0
             )
             
         elif provider == 'Custom Provider':
@@ -83,7 +91,9 @@ class LLMFactory:
                 base_url=base_url,
                 api_key=api_key,
                 model=model_name,
-                temperature=temperature
+                temperature=temperature,
+                max_retries=3,
+                timeout=30.0
             )
             
         else:
@@ -91,7 +101,9 @@ class LLMFactory:
             from langchain_google_genai import ChatGoogleGenerativeAI
             os.environ['GOOGLE_API_KEY'] = api_key
             return ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash", 
+                model="gemini-1.5-flash", 
                 temperature=temperature,
-                google_api_key=api_key
+                google_api_key=api_key,
+                max_retries=3,
+                timeout=30.0
             )

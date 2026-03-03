@@ -111,17 +111,60 @@ def execute_fix_and_revalidate(conflict, new_hari, new_jam, guru, kelas_to_move)
 # --- CUSTOM CSS ---
 st.markdown("""
 <style>
-    .stButton>button {
-        width: 100%;
-        border-radius: 10px;
-        height: 3em;
-        font-weight: bold;
+    /* Hide default Streamlit sidebar navigation */
+    [data-testid="stSidebarNav"] {
+        display: none;
     }
+    
+    /* Premium Sidebar Styling */
+    section[data-testid="stSidebar"] {
+        background-color: #0e1117;
+    }
+    
+    /* Button Base Style */
+    .stButton > button {
+        width: 100%;
+        border-radius: 12px;
+        height: 3.5em;
+        font-weight: 600;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background-color: rgba(255, 255, 255, 0.05);
+        color: white;
+        transition: all 0.3s ease;
+        text-align: left;
+        padding-left: 1.5em;
+        margin-bottom: 0.5em;
+    }
+    
+    /* Button Hover Effect */
+    .stButton > button:hover {
+        border-color: #4A90E2;
+        background-color: rgba(74, 144, 226, 0.1);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Active Button Style (Primary Type) */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(90deg, #4A90E2 0%, #357ABD 100%);
+        border: none;
+        box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
+        color: white !important;
+    }
+    
+    .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(90deg, #357ABD 0%, #4A90E2 100%);
+        transform: translateY(-2px);
+    }
+
+    /* Clean divider */
+    .stDivider {
+        margin-top: 1.5rem !important;
+        margin-bottom: 1.5rem !important;
+    }
+    
     .big-font {
         font-size: 20px !important;
-    }
-    .stDataFrame {
-        border-radius: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -158,8 +201,6 @@ if not license_status['has_license']:
     **Cara mendapatkan license:**
     - 📧 Email: sales@siguru.app
     - 💬 WhatsApp: +62-XXX-XXXX-XXXX
-    
-    **Untuk testing:** Gunakan `DEV-MODE-123`
     """)
     st.stop()
 
@@ -212,34 +253,73 @@ if not st.session_state['authenticated']:
         st.markdown("Masukkan Kode Lisensi Anda untuk masuk.")
         st.text_input("License Key", key="license_input", type="password")
         st.button("Masuk", on_click=check_login)
-        st.info("Gunakan `DEV-MODE-123` untuk testing.")
     st.stop()
 
 # --- NAVIGATION ---
 with st.sidebar:
-    st.title("🎓 SiGURU AI")
+    st.markdown("""
+    <div style="text-align: center; padding: 1em 0;">
+        <h1 style="color: #4A90E2; margin-bottom: 0;">🎓 SiGURU</h1>
+        <p style="color: #888; font-size: 0.8em; margin-top: 0;">Smart AI Assistant for Teachers</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # API Key Status Indicator
+    # API Key Status Indicator (More compact)
     api_status = api_manager.get_status()
     if api_status['active']:
-        st.success(f"✅ {api_status['type']}")
+        st.caption(f"🟢 API {api_status['type']} Active")
     else:
-        st.error("⚠️ API Key tidak aktif")
+        st.error("⚠️ API Key inactive")
         if st.button("⚙️ Setup Ulang"):
             st.switch_page("pages/0_⚙️_Setup.py")
     
     st.divider()
     
-    if st.button("🏠 Beranda"):
+    # Navigation Buttons with Active State
+    if st.button("🏠 Beranda", 
+                 type="primary" if st.session_state['current_page'] == "Home" else "secondary",
+                 use_container_width=True):
         st.session_state['current_page'] = "Home"
-    if st.button("📚 Generator RPP"):
+        st.rerun()
+        
+    if st.button("📚 Generator RPP", 
+                 type="primary" if st.session_state['current_page'] == "Modul Ajar" else "secondary",
+                 use_container_width=True):
         st.session_state['current_page'] = "Modul Ajar"
-    if st.button("📝 Generator Soal"):
+        st.rerun()
+        
+    if st.button("📝 Generator Soal", 
+                 type="primary" if st.session_state['current_page'] == "Generator Soal" else "secondary",
+                 use_container_width=True):
         st.session_state['current_page'] = "Generator Soal"
-    if st.button("📅 Jadwal Pelajaran"):
+        st.rerun()
+        
+    if st.button("📅 Jadwal Pelajaran", 
+                 type="primary" if st.session_state['current_page'] == "Jadwal" else "secondary",
+                 use_container_width=True):
         st.session_state['current_page'] = "Jadwal"
+        st.rerun()
+        
     st.divider()
-    st.write("Versi: 1.0.0 (Premium)")
+    
+    # Footer Section
+    with st.expander("⚙️ Pengaturan & Info"):
+        if st.button("🔧 Setup Wizard"):
+            st.switch_page("pages/0_⚙️_Setup.py")
+        
+        # Troubleshooting Log Viewer
+        if st.checkbox("🔍 Tampilkan Debug Log"):
+            log_file = Path(__file__).parent.parent / "logs" / "siguru.log"
+            if log_file.exists():
+                with open(log_file, "r", encoding='utf-8') as f:
+                    # Show last 20 lines
+                    lines = f.readlines()
+                    st.code("".join(lines[-20:]))
+            else:
+                st.caption("Log file not found yet.")
+                    
+        st.caption("Versi: 1.1.0 (Prod-Ready)")
+        st.caption("© 2024 SiGURU AI")
 
 # --- PAGE: HOME ---
 if st.session_state['current_page'] == "Home":
@@ -302,10 +382,20 @@ elif st.session_state['current_page'] == "Modul Ajar":
                         "rpp": None, "questions": [], "status": "Running", "logs": []
                     }
                     
-                    final_state = app_graph.invoke(initial_state)
                     st.success("RPP Selesai Disusun!")
                     
-                    # Build DOCX in-memory (same approach as Jadwal)
+                    # === LOGS & STATUS ===
+                    with st.expander("🎓 Detail Proses & Log AI", expanded=False):
+                        if 'logs' in final_state:
+                            for log in final_state['logs']:
+                                if any(x in log for x in ["Error", "Failed", "Critical"]):
+                                    st.error(f"❌ {log}")
+                                elif "Warning" in log:
+                                    st.warning(f"⚠️ {log}")
+                                else:
+                                    st.info(f"🔹 {log}")
+                    
+                    # Build DOCX in-memory
                     if final_state.get('rpp'):
                         import io
                         from docx import Document
@@ -405,6 +495,17 @@ elif st.session_state['current_page'] == "Generator Soal":
                     final_state = app_graph.invoke(initial_state)
                     st.success("Selesai Generasi Soal!")
                     
+                    # === LOGS & STATUS ===
+                    with st.expander("🎓 Detail Proses & Log AI", expanded=False):
+                        if 'logs' in final_state:
+                            for log in final_state['logs']:
+                                if any(x in log for x in ["Error", "Failed", "Critical"]):
+                                    st.error(f"❌ {log}")
+                                elif "Warning" in log:
+                                    st.warning(f"⚠️ {log}")
+                                else:
+                                    st.info(f"🔹 {log}")
+
                     # Build DOCX in-memory (same approach as Jadwal)
                     questions = final_state.get('questions', [])
                     if questions:
@@ -693,16 +794,17 @@ elif st.session_state['current_page'] == "Jadwal":
                             st.markdown("---")
                 
                 # === SOFT CONFLICTS (WARNINGS) ===
-                if soft_conflicts:
-                    st.warning(f"⚠️ **{len(soft_conflicts)} Peringatan** (Opsional untuk diperbaiki)")
-                    with st.expander("Lihat Peringatan"):
-                        for warn in soft_conflicts:
-                            st.info(f"ℹ️ {warn}")
-                
-                # === NO CONFLICTS ===
-                if not hard_conflicts and not soft_conflicts:
-                    st.success("✅ **Jadwal Aman!** Tidak ada bentrok atau pelanggaran constraint.")
-        
+            # === LOGS & STATUS ===
+            with st.expander("🎓 Detail Proses & Log AI", expanded=False):
+                if 'logs' in result:
+                    for log in result['logs']:
+                        if "Error" in log or "Failed" in log or "Critical" in log:
+                            st.error(f"❌ {log}")
+                        elif "Warning" in log:
+                            st.warning(f"⚠️ {log}")
+                        else:
+                            st.info(f"🔹 {log}")
+
             if st.button("🗑️ Reset Jadwal"):
                 del st.session_state['main_jadwal_result']
                 if 'main_jadwal_conflicts' in st.session_state:
