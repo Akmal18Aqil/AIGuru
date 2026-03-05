@@ -1,112 +1,74 @@
-# 📄 Panduan Mengedit Template DOCX
+# 📄 Panduan Edit Template Dokumen (SiGURU)
 
-Template DOCX di folder ini digunakan oleh AI SiGURU untuk mencetak dokumen otomatis.
-Sistem menggunakan **Jinja2 via `docxtpl`** untuk mengisi variabel di dalam template.
-
----
-
-## 📁 Daftar Template
-
-| File | Fungsi |
-|---|---|
-| `template_rpp.docx` | Template untuk Modul Ajar / RPP |
-| `template_soal.docx` | Template untuk Bank Soal & Kunci Jawaban |
+Selamat datang! Panduan ini akan membantu Anda mengubah tampilan dokumen (RPP dan Soal) yang dihasilkan oleh SiGURU sesuai dengan keinginan Anda (misal: menambah logo sekolah atau mengubah jenis huruf).
 
 ---
 
-## ✏️ Cara Mengedit Template
-
-1. Buka file `.docx` di **Microsoft Word**.
-2. Temukan placeholder berupa `{{ variabel }}` atau blok `{% for ... %}`.
-3. Edit teks, font, warna, atau layout sesuai kebutuhan.
-4. **JANGAN** mengubah tanda kurung kurawal `{{ }}` atau syntax Jinja2.
-5. Simpan kembali sebagai format `.docx`.
+## 🚀 Langkah Cepat Mengedit
+1.  **Buka File**: Masuk ke folder `templates` dan buka file `template_rpp.docx` (untuk RPP) atau `template_soal.docx` (untuk Soal) menggunakan **Microsoft Word**.
+2.  **Desain Sesuka Hati**: Anda bebas mengubah font, warna, ukuran kertas, atau menambahkan gambar/logo sekolah.
+3.  **Gunakan "Kode Ajaib"**: Di dalam dokumen, terdapat teks seperti `{{ guru }}`. Ini adalah "kode" yang akan diganti otomatis oleh AI dengan nama guru yang Anda ketik di aplikasi.
+4.  **Simpan**: Setelah selesai, cukup klik **Save** (Simpan). Pastikan formatnya tetap `.docx`.
 
 ---
 
-## 🔤 Variabel yang Tersedia
+## 🔠 Daftar "Kode Ajaib" (Variabel)
+Anda bisa salin-tempel kode di bawah ini ke dalam dokumen Word Anda. Pastikan tanda kurungnya lengkap `{{ ... }}`.
 
-### Template RPP (`template_rpp.docx`)
-
-| Variabel | Isi |
-|---|---|
-| `{{ topic }}` | Topik / Materi Pelajaran |
-| `{{ subject }}` | Mata Pelajaran |
-| `{{ grade }}` | Jenjang Kelas |
-| `{{ sekolah }}` | Nama Sekolah |
-| `{{ guru }}` | Nama Guru |
-| `{{ nip }}` | NIP Guru |
-| `{{ kepsek }}` | Nama Kepala Sekolah |
+### 📚 Untuk RPP (`template_rpp.docx`)
+| Kode | Akan Berubah Menjadi... |
+| :--- | :--- |
+| `{{ topic }}` | Topik atau Materi Pelajaran |
+| `{{ subject }}` | Mata Pelajaran (IPA, IPS, dll) |
+| `{{ grade }}` | Jenjang (SD, SMP, SMA, Kuliah) |
+| `{{ class_level }}` | **(Baru!)** Kelas atau Semester |
+| `{{ guru }}` | Nama Anda sebagai Guru |
+| `{{ sekolah }}` | Nama Sekolah Anda |
 | `{{ tahun }}` | Tahun Ajaran |
-| `{{ date }}` | Tanggal cetak |
-| `{{ rpp_tujuan }}` | Tujuan Pembelajaran |
-| `{{ rpp_kegiatan }}` | Langkah-langkah Kegiatan |
-| `{{ rpp_asesmen }}` | Asesmen / Penilaian |
+| `{{ rpp_tujuan }}` | Daftar Tujuan Pembelajaran |
+| `{{ rpp_kegiatan }}` | Langkah-langkah Kegiatan Belajar |
+| `{{ rpp_asesmen }}` | Cara Penilaian / Asesmen |
+
+### 📝 Untuk Soal (`template_soal.docx`)
+| Kode | Akan Berubah Menjadi... |
+| :--- | :--- |
+| `{{ topic }}` | Judul atau Topik Ujian |
+| `{{ grade }}` | Jenjang Pendidikan |
+| `{{ class_level }}` | **(Baru!)** Kelas atau Semester |
 
 ---
 
-### Template Soal (`template_soal.docx`)
+## 📋 Cara Menampilkan Daftar Soal (Khusus Pengguna Lanjut)
+Untuk menampilkan daftar soal secara otomatis, Anda harus menyertakan blok kode berikut di file `template_soal.docx`. **Copy-paste persis seperti ini:**
 
-| Variabel | Isi |
-|---|---|
-| `{{ topic }}` | Topik / Judul Soal |
-| `{{ subject }}` | Mata Pelajaran |
-| `{{ grade }}` | Jenjang Kelas |
-| `{{ sekolah }}` | Nama Sekolah |
-
-#### Loop Soal (wajib ada persis seperti ini):
-
-```
+**1. Untuk Daftar Pertanyaan:**
+```text
 {% for q in questions %}
 {{ q.id }}. {{ q.question }}
-{% for opt in q.options %}
-- {{ opt }}
-{% endfor %}
+   Opsi: {{ q.options }}
 {% endfor %}
 ```
 
-#### Loop Kunci Jawaban:
-
-```
+**2. Untuk Kunci Jawaban:**
+```text
 {% for q in questions %}
-{{ q.id }}. {{ q.answer_key }} (Taksonomi: {{ q.taxonomy }})
+{{ q.id }}. {{ q.answer_key }}
 {% endfor %}
 ```
 
-#### Properti Setiap Soal (`q`):
+---
 
-| Properti | Isi |
-|---|---|
-| `q.id` | Nomor soal |
-| `q.question` | Pertanyaan |
-| `q.type` | Jenis soal (Pilihan Ganda, Isian, dll) |
-| `q.options` | Daftar opsi jawaban A, B, C, D (bisa kosong untuk non-PG) |
-| `q.answer_key` | Kunci jawaban |
-| `q.taxonomy` | Taksonomi Bloom (C1-C6) |
-| `q.difficulty` | Tingkat kesulitan (Mudah/Sedang/Sulit) |
+## ⚠️ Hal Penting (Agar Tidak Error)
+*   **Jangan memotong kode**: Pastikan `{{` dan `}}` berada dalam satu baris dan tidak terpisah oleh enter/jarak yang jauh.
+*   **Jangan hapus tanda kurung**: Jika Anda menghapus satu kurung saja, misal menjadi `{ guru }}`, maka sistem akan error.
+*   **Gagal Template?**: Jika Anda melakukan kesalahan saat mengedit dan file tidak bisa terbuka, SiGURU akan otomatis menggunakan "format standar" yang sederhana agar tugas Anda tetap selesai.
 
 ---
 
-## ⚠️ Aturan Penting
-
-> **WAJIB:** Jangan pisah-pisahkan tag Jinja ke baris atau paragraf terpisah yang tidak berurutan. Contoh yang **salah**:
-> ```
-> {% for q  (paragraf 1)
-> in questions %}  (paragraf 2)
-> ```
-> Harus dalam **satu run/paragraf** yang sama di Word.
-
-> **TIPS:** Gunakan fitur "Find & Replace" di Word (`Ctrl+H`) untuk melihat apakah ada tag yang terpotong secara tidak sengaja.
-
-> **JIKA TEMPLATE GAGAL:** Sistem akan otomatis menggunakan fallback python-docx untuk tetap menghasilkan dokumen walau tampilannya lebih sederhana.
+## 💡 Tips Profesional
+*   **Tambah Logo**: Klik *Insert > Picture* di Word untuk menambah logo sekolah di bagian header agar dokumen terlihat lebih resmi.
+*   **Ganti Font**: Gunakan font seperti *Inter, Roboto,* atau *Arial* agar dokumen mudah dibaca oleh siswa.
+*   **Tabel**: Anda bisa memasukkan kode `{{ ... }}` ke dalam tabel Word agar biodata sekolah terlihat lebih rapi.
 
 ---
-
-## 🛠️ Cara Membuat Template Baru dari Nol
-
-1. Buat dokumen Word kosong baru.
-2. Desain layout sesuai kebutuhan (header, footer, logo sekolah, dll).
-3. Tambahkan placeholder variabel di posisi yang diinginkan, contoh: `{{ guru }}`.
-4. Untuk soal, sisipkan blok loop `{% for q in questions %}` ... `{% endfor %}`.
-5. Simpan sebagai `template_rpp.docx` atau `template_soal.docx` (ganti file yang lama).
-6. Restart Streamlit agar template baru terbaca.
+*© 2024 SiGURU AI - Membantu Guru Menjadi Lebih Hebat!*

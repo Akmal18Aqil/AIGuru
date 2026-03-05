@@ -12,6 +12,7 @@ Prinsip: Merujuk CP terbaru, menyesuaikan jenjang, integrasikan Profil Pelajar P
 Rancang Modul Ajar/RPP ringkas untuk:
 - Topik: {topic}
 - Jenjang: {grade_level}
+- Kelas/Tingkat: {class_level}
 - Mapel: {subject}
 </task>
 
@@ -53,10 +54,10 @@ PROMPT_QUESTION_GENERATOR = """<persona>
 Anda: **Ahli Psikometri Senior** — spesialis asesmen TIMSS/PISA, kalibrasi tingkat kesulitan.
 </persona>
 
-<task>
 Konstruksi {count} soal {type}:
 - Topik: {topic}
 - Jenjang: {grade_level}
+- Kelas/Tingkat: {class_level}
 - TP: {goals}
 </task>
 

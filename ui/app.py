@@ -355,7 +355,15 @@ elif st.session_state['current_page'] == "Modul Ajar":
     with col_input:
         st.subheader("Konfigurasi")
         topic = st.text_input("Topik / Materi", "Sistem Pencernaan Manusia")
-        grade_level = st.selectbox("Jenjang", ["SD Kelas 1-6", "SMP Kelas 7-9", "SMA Kelas 10-12"])
+        jenjang = st.selectbox("Jenjang", ["SD", "SMP", "SMA", "Kuliah"])
+        
+        kelas_options = {
+            "SD": [f"Kelas {i}" for i in range(1, 7)],
+            "SMP": [f"Kelas {i}" for i in range(7, 10)],
+            "SMA": [f"Kelas {i}" for i in range(10, 13)],
+            "Kuliah": [f"Semester {i}" for i in range(1, 9)] + ["Pascasarjana"]
+        }
+        class_level = st.selectbox("Kelas / Tingkat", kelas_options[jenjang])
         subject = st.text_input("Mata Pelajaran", "Ilmu Pengetahuan Alam (IPA)")
         
         with st.expander("Identitas Sekolah", expanded=True):
@@ -379,7 +387,7 @@ elif st.session_state['current_page'] == "Modul Ajar":
                 os.environ["GOOGLE_API_KEY"] = api_key
                 with st.spinner("Sedang menyusun RPP..."):
                     initial_state = {
-                        "topic": topic, "grade_level": grade_level, "subject": subject,
+                        "topic": topic, "grade_level": jenjang, "class_level": class_level, "subject": subject,
                         "admin_data": {"guru": guru, "nip": nip, "sekolah": sekolah, "kepsek": kepsek, "tahun_ajar": tahun_ajar},
                         "source_text": "", "use_rag": False, "generation_mode": "rpp_only",
                         "rpp": None, "questions": [], "status": "Running", "logs": []
@@ -428,7 +436,15 @@ elif st.session_state['current_page'] == "Generator Soal":
     with col_input:
         st.subheader("Sumber Materi")
         topic = st.text_input("Topik Referensi", "Sistem Pencernaan Manusia")
-        grade_level = st.selectbox("Jenjang Akademik", ["SD Kelas 1-6", "SMP Kelas 7-9", "SMA Kelas 10-12"])
+        jenjang_soal = st.selectbox("Jenjang Akademik", ["SD", "SMP", "SMA", "Kuliah"])
+        
+        kelas_options_soal = {
+            "SD": [f"Kelas {i}" for i in range(1, 7)],
+            "SMP": [f"Kelas {i}" for i in range(7, 10)],
+            "SMA": [f"Kelas {i}" for i in range(10, 13)],
+            "Kuliah": [f"Semester {i}" for i in range(1, 9)] + ["Pascasarjana"]
+        }
+        class_level_soal = st.selectbox("Kelas / Tingkat ", kelas_options_soal[jenjang_soal], key="kelas_soal")
         
         with st.expander("Modifikasi dari File Lama (Opsional)"):
             st.info("Gunakan ini jika Anda ingin membuat variasi soal dari dokumen lama.")
@@ -466,7 +482,7 @@ elif st.session_state['current_page'] == "Generator Soal":
                         source_text = load_document_text(str(temp_path))
                         
                     initial_state = {
-                        "topic": topic, "grade_level": grade_level, "subject": "-",
+                        "topic": topic, "grade_level": jenjang_soal, "class_level": class_level_soal, "subject": "-",
                         "admin_data": {},
                         "source_text": source_text, "use_rag": use_rag, "generation_mode": "soal_only",
                         "num_questions": num_questions,

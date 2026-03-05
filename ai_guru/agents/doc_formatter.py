@@ -76,7 +76,7 @@ def _build_soal_doc_in_memory(state: AgentState, context: dict) -> bytes:
     doc.add_heading(f"BANK SOAL: {state['topic']}", 0)
     
     meta = doc.add_paragraph()
-    meta.add_run(f"Mata Pelajaran: {state['subject']}  |  Kelas: {state['grade_level']}").bold = True
+    meta.add_run(f"Mata Pelajaran: {state['subject']}  |  Jenjang: {state['grade_level']}  |  Kelas/Tingkat: {state.get('class_level', '-')}").bold = True
     doc.add_paragraph("─" * 60)
 
     questions = context.get('questions', [])
@@ -130,8 +130,13 @@ def _build_rpp_doc_in_memory(state: AgentState, context: dict) -> bytes:
     cells = info_table.rows
     cells[0].cells[0].text = 'Mata Pelajaran'
     cells[0].cells[1].text = str(state['subject'])
-    cells[1].cells[0].text = 'Jenjang/Kelas'
+    cells[1].cells[0].text = 'Jenjang'
     cells[1].cells[1].text = str(state['grade_level'])
+    
+    # Add a row for Kelas/Tingkat if possible, or combine
+    new_row = info_table.add_row().cells
+    new_row[0].text = 'Kelas / Tingkat'
+    new_row[1].text = str(state.get('class_level', '-'))
     cells[2].cells[0].text = 'Nama Guru'
     cells[2].cells[1].text = context.get('guru', '-')
     cells[3].cells[0].text = 'Sekolah'
@@ -174,6 +179,7 @@ def format_document(state: AgentState) -> AgentState:
         'topic': state['topic'],
         'subject': state.get('subject', '-'),
         'grade': state['grade_level'],
+        'class_level': state.get('class_level', '-'),
         'sekolah': admin_data.get('sekolah', '-'),
         'guru': admin_data.get('guru', '-'),
         'nip': admin_data.get('nip', '-'),

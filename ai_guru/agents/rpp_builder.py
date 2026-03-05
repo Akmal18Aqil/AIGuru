@@ -24,6 +24,7 @@ def build_rpp(state: AgentState) -> AgentState:
         prompt = PROMPT_RPP_GENERATOR.format(
             topic=state.get('topic', ''),
             grade_level=state.get('grade_level', ''),
+            class_level=state.get('class_level', ''),
             subject=state.get('subject', '')
         )
         

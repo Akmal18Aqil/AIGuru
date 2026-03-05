@@ -52,6 +52,7 @@ def build_questions(state: AgentState) -> AgentState:
                 type=batch['type'],
                 topic=state.get('topic', ''),
                 grade_level=state.get('grade_level', ''),
+                class_level=state.get('class_level', ''),
                 goals=goals
             )
             

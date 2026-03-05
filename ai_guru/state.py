@@ -35,7 +35,8 @@ class ClassData(TypedDict):
 
 class AgentState(TypedDict):
     topic: str
-    grade_level: str # 'SD', 'SMP', 'SMA'
+    grade_level: str # 'SD', 'SMP', 'SMA', 'Kuliah'
+    class_level: str # 'Kelas 1', 'Semester 1', etc.
     subject: str     # 'Matematika', 'IPA', etc.
     
     # Administrative Data
