@@ -1,4 +1,4 @@
-# SiGURU AI Assistant (v1.1.0-Prod)
+# SiGURU AI Assistant
 
 SiGURU adalah asisten AI desktop premium yang dirancang khusus untuk guru di Indonesia. Aplikasi ini membantu otomatisasi pembuatan Modul Ajar (RPP) Kurikulum Merdeka, pembuatan bank soal, dan penyusunan jadwal pelajaran sekolah tanpa bentrok.
 
