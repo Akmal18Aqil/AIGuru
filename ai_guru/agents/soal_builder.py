@@ -16,7 +16,9 @@ def build_questions(state: AgentState) -> AgentState:
     Node to generate 50 questions in batches.
     """
     try:
-        llm = LLMFactory.get_llm(temperature=0.4)
+        # Question generation in batches can take ~60-100s
+        llm = LLMFactory.get_llm(temperature=0.4, timeout=120.0)
+
         num_q = max(1, state.get('num_questions', 50))
         question_types = state.get('question_types', ["Pilihan Ganda"])
         

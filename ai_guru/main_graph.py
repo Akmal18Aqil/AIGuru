@@ -5,8 +5,13 @@ from ai_guru.agents.soal_builder import build_questions
 from ai_guru.agents.doc_formatter import format_document
 from ai_guru.agents.jadwal_builder import build_jadwal # Imported
 from dotenv import load_dotenv
+from ai_guru.utils.path_utils import get_persistent_data_dir
 
-load_dotenv()
+env_path = get_persistent_data_dir() / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+else:
+    load_dotenv()
 
 from ai_guru.agents.soal_remixer import remix_questions
 

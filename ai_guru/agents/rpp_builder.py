@@ -16,7 +16,9 @@ def build_rpp(state: AgentState) -> AgentState:
     Node to generate RPP based on the topic.
     """
     try:
-        llm = LLMFactory.get_llm(temperature=0.3)
+        # RPP generation typically takes ~30-60s
+        llm = LLMFactory.get_llm(temperature=0.3, timeout=90.0)
+
         logger.info(f"Generating RPP for: {state.get('topic', 'Unknown')}")
         
         prompt = PROMPT_RPP_GENERATOR.format(

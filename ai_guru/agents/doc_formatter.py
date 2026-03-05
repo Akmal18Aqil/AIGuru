@@ -6,6 +6,65 @@ from ai_guru.state import AgentState
 import os
 import io
 import datetime
+from ai_guru.utils.path_utils import get_resource_path
+
+
+def _format_list(items, numbered=False):
+    """Formats a list of strings into a professional bulleted or numbered string."""
+    if not items:
+        return "-"
+    if isinstance(items, str):
+        return items
+    
+    lines = []
+    for i, item in enumerate(items):
+        if numbered:
+            lines.append(f"{i+1}. {item}")
+        else:
+            lines.append(f"• {item}")
+    return "\n".join(lines)
+
+
+def _format_kegiatan(kegiatan_data):
+    """Processes granular kegiatan JSON into a structured string."""
+    if not isinstance(kegiatan_data, dict):
+        return str(kegiatan_data)
+    
+    output = []
+    
+    if 'pendahuluan' in kegiatan_data:
+        output.append("1. PENDAHULUAN")
+        output.append(_format_list(kegiatan_data['pendahuluan']))
+        output.append("")
+        
+    if 'inti' in kegiatan_data:
+        output.append("2. KEGIATAN INTI")
+        output.append(_format_list(kegiatan_data['inti']))
+        output.append("")
+        
+    if 'penutup' in kegiatan_data:
+        output.append("3. PENUTUP")
+        output.append(_format_list(kegiatan_data['penutup']))
+        
+    return "\n".join(output)
+
+
+def _format_asesmen(asesmen_data):
+    """Processes granular asesmen JSON into a structured string."""
+    if not isinstance(asesmen_data, dict):
+        return str(asesmen_data)
+    
+    output = []
+    if 'formatif' in asesmen_data:
+        output.append("Asesmen Formatif:")
+        output.append(_format_list(asesmen_data['formatif']))
+        output.append("")
+    
+    if 'sumatif' in asesmen_data:
+        output.append("Asesmen Sumatif:")
+        output.append(_format_list(asesmen_data['sumatif']))
+        
+    return "\n".join(output)
 
 
 def _build_soal_doc_in_memory(state: AgentState, context: dict) -> bytes:
@@ -91,6 +150,7 @@ def _build_rpp_doc_in_memory(state: AgentState, context: dict) -> bytes:
     doc.add_heading("C. Asesmen", 2)
     asesmen = context.get('rpp_asesmen', '-')
     doc.add_paragraph(asesmen)
+
     
     buf = io.BytesIO()
     doc.save(buf)
@@ -104,8 +164,8 @@ def format_document(state: AgentState) -> AgentState:
     Saves file to disk AND stores bytes in state for direct download.
     """
     print(f"Formatting documents for: {state['topic']}")
-    safe_topic = state['topic'].replace(' ', '_').replace('/', '-')
     today = datetime.date.today().strftime("%d %B %Y")
+
     
     admin_data = state.get('admin_data') or {}
     
@@ -145,13 +205,11 @@ def format_document(state: AgentState) -> AgentState:
         context['questions'] = safe_questions
     
     if state.get('rpp'):
-        tujuan = state['rpp'].get('tujuan_pembelajaran', [])
-        if isinstance(tujuan, list):
-            context['rpp_tujuan'] = "\n".join(tujuan)
-        else:
-            context['rpp_tujuan'] = str(tujuan)
-        context['rpp_kegiatan'] = state['rpp'].get('langkah_kegiatan', '')
-        context['rpp_asesmen'] = state['rpp'].get('asesmen', '')
+        rpp_raw = state['rpp']
+        context['rpp_tujuan'] = _format_list(rpp_raw.get('tujuan_pembelajaran', []), numbered=True)
+        context['rpp_kegiatan'] = _format_kegiatan(rpp_raw.get('langkah_kegiatan', {}))
+        context['rpp_asesmen'] = _format_asesmen(rpp_raw.get('asesmen', {}))
+
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
     # Go up to project root (src/agents -> src -> root)
@@ -159,50 +217,47 @@ def format_document(state: AgentState) -> AgentState:
 
     # --- 1. RPP Generation ---
     if state.get('rpp'):
-        rpp_filename = f"RPP_{safe_topic}.docx"
-        rpp_path = os.path.join(project_root, rpp_filename)
         try:
-            template_rpp_path = os.path.join(project_root, 'templates', 'template_rpp.docx')
-            if os.path.exists(template_rpp_path):
-                print("Using RPP Template")
-                doc = DocxTemplate(template_rpp_path)
+            template_rpp_path = get_resource_path('templates/template_rpp.docx')
+            if template_rpp_path.exists():
+                print(f"Using RPP Template: {template_rpp_path}")
+                doc = DocxTemplate(str(template_rpp_path))
                 doc.render(context)
-                doc.save(rpp_path)
+                buf = io.BytesIO()
+                doc.save(buf)
+                state['rpp_docx'] = buf.getvalue()
             else:
+                print(f"RPP Template not found at {template_rpp_path}, using fallback.")
                 rpp_bytes = _build_rpp_doc_in_memory(state, context)
-                with open(rpp_path, 'wb') as f:
-                    f.write(rpp_bytes)
-                print(f"RPP saved to: {rpp_path}")
+                state['rpp_docx'] = rpp_bytes
         except Exception as e:
             print(f"Error generating RPP: {e}")
-            state['logs'].append(f"RPP Error: {str(e)}")
+            state['logs'].append(f"RPP Formatting Error: {str(e)}")
 
     # --- 2. Soal Generation ---
     if state.get('questions'):
-        soal_filename = f"Soal_{safe_topic}.docx"
-        soal_path = os.path.join(project_root, soal_filename)
         try:
-            template_soal_path = os.path.join(project_root, 'templates', 'template_soal.docx')
-            if os.path.exists(template_soal_path):
-                print("Using Soal Template")
-                doc = DocxTemplate(template_soal_path)
+            template_soal_path = get_resource_path('templates/template_soal.docx')
+            if template_soal_path.exists():
+                print(f"Using Soal Template: {template_soal_path}")
+                doc = DocxTemplate(str(template_soal_path))
                 doc.render(context)
-                doc.save(soal_path)
+                buf = io.BytesIO()
+                doc.save(buf)
+                state['soal_docx'] = buf.getvalue()
             else:
+                print(f"Soal Template not found at {template_soal_path}, using fallback.")
                 soal_bytes = _build_soal_doc_in_memory(state, context)
-                with open(soal_path, 'wb') as f:
-                    f.write(soal_bytes)
-                print(f"Soal saved to: {soal_path}")
+                state['soal_docx'] = soal_bytes
         except Exception as e:
             print(f"Soal Template failed: {e}. Falling back to programmatic generation.")
             try:
                 soal_bytes = _build_soal_doc_in_memory(state, context)
-                with open(soal_path, 'wb') as f:
-                    f.write(soal_bytes)
-                print(f"Soal saved via fallback to: {soal_path}")
+                state['soal_docx'] = soal_bytes
             except Exception as e2:
                 print(f"Fatal error generating Soal: {e2}")
-                state['logs'].append(f"Soal Error: {str(e2)}")
+                state['logs'].append(f"Soal Formatting Error: {str(e2)}")
+
         
     state['logs'].append("Documents generated.")
     return state

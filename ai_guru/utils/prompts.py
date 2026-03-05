@@ -26,18 +26,27 @@ Analisis internal sebelum output:
 JSON ONLY:
 ```json
 {{
-    "tujuan_pembelajaran": ["TP 1: [Kata kerja operasional + konten + kondisi]"],
-    "langkah_kegiatan": "**Pendahuluan (10'):** ... | **Inti (60'):** ... | **Penutup (10'):** ...",
-    "asesmen": "Formatif: ... | Sumatif: ..."
+    "tujuan_pembelajaran": ["Poin 1", "Poin 2"],
+    "langkah_kegiatan": {{
+        "pendahuluan": ["Langkah 1", "Langkah 2"],
+        "inti": ["Langkah 1", "Langkah 2"],
+        "penutup": ["Langkah 1", "Langkah 2"]
+    }},
+    "asesmen": {{
+        "formatif": ["Metode 1"],
+        "sumatif": ["Metode 2"]
+    }}
 }}
 ```
 </output>
 
 <rules>
-- Kata kerja operasional Bloom (C1-C6)
-- 2-4 tujuan pembelajaran
-- Kegiatan harus student-centered
+- Gunakan Kata Kerja Operasional Bloom (C1-C6).
+- 2-4 Tujuan Pembelajaran.
+- Kegiatan harus student-centered dan spesifik.
+- Jangan gunakan simbol pipes (|), gunakan array JSON.
 </rules>"""
+
 
 
 PROMPT_QUESTION_GENERATOR = """<persona>

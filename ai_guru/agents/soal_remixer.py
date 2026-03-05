@@ -19,7 +19,9 @@ def remix_questions(state: AgentState) -> AgentState:
 
     print(f"Remixing Questions from Source Text...")
 
-    llm = LLMFactory.get_llm(temperature=0.35)  # Balanced for creativity and accuracy
+    # RAG extraction and remixing takes ~45-70s
+    llm = LLMFactory.get_llm(temperature=0.35, timeout=90.0)
+
 
     # 1. Extract Questions from Text
     source_text = state['source_text'][:500000]  # Truncate text if too long

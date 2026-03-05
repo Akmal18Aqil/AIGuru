@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import sys
 import os
+from pathlib import Path
 
 # Add src to pythonpath so imports work
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -309,7 +310,9 @@ with st.sidebar:
         
         # Troubleshooting Log Viewer
         if st.checkbox("🔍 Tampilkan Debug Log"):
-            log_file = Path(__file__).parent.parent / "logs" / "siguru.log"
+            from ai_guru.utils.path_utils import get_persistent_data_dir
+            log_file = get_persistent_data_dir() / "logs" / "siguru.log"
+
             if log_file.exists():
                 with open(log_file, "r", encoding='utf-8') as f:
                     # Show last 20 lines
@@ -381,63 +384,40 @@ elif st.session_state['current_page'] == "Modul Ajar":
                         "source_text": "", "use_rag": False, "generation_mode": "rpp_only",
                         "rpp": None, "questions": [], "status": "Running", "logs": []
                     }
+                    final_state = app_graph.invoke(initial_state)
                     
-                    st.success("RPP Selesai Disusun!")
-                    
-                    # === LOGS & STATUS ===
-                    with st.expander("🎓 Detail Proses & Log AI", expanded=False):
-                        if 'logs' in final_state:
-                            for log in final_state['logs']:
-                                if any(x in log for x in ["Error", "Failed", "Critical"]):
-                                    st.error(f"❌ {log}")
-                                elif "Warning" in log:
-                                    st.warning(f"⚠️ {log}")
-                                else:
-                                    st.info(f"🔹 {log}")
-                    
-                    # Build DOCX in-memory
                     if final_state.get('rpp'):
-                        import io
-                        from docx import Document
-                        rpp = final_state['rpp']
-                        doc = Document()
-                        doc.add_heading(f"Modul Ajar / RPP: {topic}", 0)
-                        doc.add_heading(subject, 1)
-                        
-                        # Identity Table
-                        tbl = doc.add_table(rows=5, cols=2)
-                        tbl.style = 'Light Shading Accent 1'
-                        rows = tbl.rows
-                        rows[0].cells[0].text = 'Mata Pelajaran';  rows[0].cells[1].text = subject
-                        rows[1].cells[0].text = 'Jenjang';         rows[1].cells[1].text = grade_level
-                        rows[2].cells[0].text = 'Guru';            rows[2].cells[1].text = guru
-                        rows[3].cells[0].text = 'Sekolah';         rows[3].cells[1].text = sekolah
-                        rows[4].cells[0].text = 'Tahun Ajaran';    rows[4].cells[1].text = tahun_ajar
-                        doc.add_paragraph()
-                        
-                        doc.add_heading('A. Tujuan Pembelajaran', 2)
-                        tujuan = rpp.get('tujuan_pembelajaran', [])
-                        if isinstance(tujuan, list):
-                            for tp in tujuan: doc.add_paragraph(tp, style='List Bullet')
-                        else:
-                            doc.add_paragraph(str(tujuan))
-                        
-                        doc.add_heading('B. Langkah Kegiatan', 2)
-                        doc.add_paragraph(rpp.get('langkah_kegiatan', '-'))
-                        
-                        doc.add_heading('C. Asesmen', 2)
-                        doc.add_paragraph(rpp.get('asesmen', '-'))
-                        
-                        buf_rpp = io.BytesIO()
-                        doc.save(buf_rpp)
-                        safe_topic = topic.replace(' ', '_').replace('/', '-')
-                        st.download_button(
-                            label="📄 Download RPP (DOCX)",
-                            data=buf_rpp.getvalue(),
-                            file_name=f"RPP_{safe_topic}.docx",
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        )
-                        st.info(f"Tujuan Pembelajaran: {tujuan}")
+                        st.session_state['main_rpp_result'] = final_state['rpp']
+                        st.session_state['main_rpp_docx'] = final_state.get('rpp_docx')
+                        st.session_state['main_rpp_logs'] = final_state.get('logs', [])
+                        st.success("RPP Selesai Disusun!")
+
+
+                # === LOGS & STATUS (RPP) ===
+                if 'main_rpp_logs' in st.session_state:
+                    with st.expander("🎓 Detail Proses & Log AI", expanded=False):
+                        for log in st.session_state['main_rpp_logs']:
+                            if any(x in log for x in ["Error", "Failed", "Critical"]):
+                                st.error(f"❌ {log}")
+                            elif "Warning" in log:
+                                st.warning(f"⚠️ {log}")
+                            else:
+                                st.info(f"🔹 {log}")
+                    
+        # --- DISPLAY RESULTS (RPP) ---
+        if st.session_state.get('main_rpp_docx'):
+            st.info("RPP Berhasil Disusun sesuai template.")
+            safe_topic = topic.replace(' ', '_').replace('/', '-')
+            st.download_button(
+                label="📄 Download RPP (DOCX)",
+                data=st.session_state['main_rpp_docx'],
+                file_name=f"RPP_{safe_topic}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+        elif 'main_rpp_result' in st.session_state:
+            st.warning("Hasil RPP ada, tetapi file DOCX gagal dibuat. Cek log AI.")
+
+
 
 # --- PAGE: GENERATOR SOAL ---
 elif st.session_state['current_page'] == "Generator Soal":
@@ -480,8 +460,10 @@ elif st.session_state['current_page'] == "Generator Soal":
                 with st.spinner(f"Merumuskan {num_questions} soal... (Bisa butuh 1-2 menit)"):
                     source_text = ""
                     if uploaded_file and use_rag:
-                        with open("temp_upload", "wb") as f: f.write(uploaded_file.getbuffer())
-                        source_text = load_document_text("temp_upload")
+                        from ai_guru.utils.path_utils import get_persistent_data_dir
+                        temp_path = get_persistent_data_dir() / "temp_upload"
+                        with open(temp_path, "wb") as f: f.write(uploaded_file.getbuffer())
+                        source_text = load_document_text(str(temp_path))
                         
                     initial_state = {
                         "topic": topic, "grade_level": grade_level, "subject": "-",
@@ -493,66 +475,40 @@ elif st.session_state['current_page'] == "Generator Soal":
                     }
                     
                     final_state = app_graph.invoke(initial_state)
-                    st.success("Selesai Generasi Soal!")
                     
-                    # === LOGS & STATUS ===
-                    with st.expander("🎓 Detail Proses & Log AI", expanded=False):
-                        if 'logs' in final_state:
-                            for log in final_state['logs']:
-                                if any(x in log for x in ["Error", "Failed", "Critical"]):
-                                    st.error(f"❌ {log}")
-                                elif "Warning" in log:
-                                    st.warning(f"⚠️ {log}")
-                                else:
-                                    st.info(f"🔹 {log}")
+                    if final_state.get('questions'):
+                        st.session_state['main_soal_result'] = final_state['questions']
+                        st.session_state['main_soal_docx'] = final_state.get('soal_docx')
+                        st.session_state['main_soal_logs'] = final_state.get('logs', [])
+                        st.success("Selesai Generasi Soal!")
 
-                    # Build DOCX in-memory (same approach as Jadwal)
-                    questions = final_state.get('questions', [])
-                    if questions:
-                        import io
-                        from docx import Document
-                        doc = Document()
-                        doc.add_heading(f"Bank Soal: {topic}", 0)
-                        p = doc.add_paragraph()
-                        p.add_run(f"Kelas: {grade_level}  |  Jumlah Soal: {len(questions)}").bold = True
-                        doc.add_paragraph("─" * 55)
-                        
-                        for q in questions:
-                            if not isinstance(q, dict): continue
-                            q_num = q.get('id', '?')
-                            q_text = q.get('question', '')
-                            q_type = q.get('type', '')
-                            options = q.get('options') or []
-                            
-                            p = doc.add_paragraph()
-                            p.add_run(f"{q_num}. [{q_type}] ").bold = True
-                            p.add_run(q_text)
-                            
-                            for opt in options:
-                                if opt:
-                                    doc.add_paragraph(f"   {opt}", style='List Bullet')
-                            doc.add_paragraph()
-                        
-                        doc.add_page_break()
-                        doc.add_heading("Kunci Jawaban", 1)
-                        for q in questions:
-                            if not isinstance(q, dict): continue
-                            p = doc.add_paragraph()
-                            p.add_run(f"{q.get('id', '?')}. ").bold = True
-                            p.add_run(f"{q.get('answer_key', '-')} ")
-                            p.add_run(f"(Taksonomi: {q.get('taxonomy', '-')})").italic = True
-                        
-                        buf_soal = io.BytesIO()
-                        doc.save(buf_soal)
-                        safe_topic = topic.replace(' ', '_').replace('/', '-')
-                        st.download_button(
-                            label="📝 Download Soal (DOCX)",
-                            data=buf_soal.getvalue(),
-                            file_name=f"Soal_{safe_topic}.docx",
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        )
-                    else:
-                        st.warning("Soal tidak berhasil dibuat. Coba lagi.")
+
+                # === LOGS & STATUS (SOAL) ===
+                if 'main_soal_logs' in st.session_state:
+                    with st.expander("🎓 Detail Proses & Log AI", expanded=False):
+                        for log in st.session_state['main_soal_logs']:
+                            if any(x in log for x in ["Error", "Failed", "Critical"]):
+                                st.error(f"❌ {log}")
+                            elif "Warning" in log:
+                                st.warning(f"⚠️ {log}")
+                            else:
+                                st.info(f"🔹 {log}")
+
+
+        # --- DISPLAY RESULTS (SOAL) ---
+        if st.session_state.get('main_soal_docx'):
+            st.info("Soal Berhasil Disusun sesuai template.")
+            safe_topic = topic.replace(' ', '_').replace('/', '-')
+            st.download_button(
+                label="📝 Download Soal (DOCX)",
+                data=st.session_state['main_soal_docx'],
+                file_name=f"Soal_{safe_topic}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+        elif 'main_soal_result' in st.session_state:
+            st.warning("Hasil Soal ada, tetapi file DOCX gagal dibuat. Cek log AI.")
+
+
 
 # --- PAGE: JADWAL PELAJARAN (New & Improved) ---
 elif st.session_state['current_page'] == "Jadwal":
@@ -670,16 +626,45 @@ elif st.session_state['current_page'] == "Jadwal":
                         result = app_graph.invoke(sched_state)
                         
                         # Store in SESSION STATE
-                        if result.get('jadwal_result'):
-                            st.session_state['main_jadwal_result'] = result['jadwal_result']
-                        if result.get('jadwal_conflicts'):
-                            st.session_state['main_jadwal_conflicts'] = result['jadwal_conflicts']
-                            
-                        st.success("Jadwal Berhasil Disusun!")
-                        st.rerun()
+                        jadwal_result = result.get('jadwal_result')
+                        
+                        if jadwal_result and len(jadwal_result) > 0:
+                            # ✅ SUCCESS: data actually exists
+                            st.session_state['main_jadwal_result'] = jadwal_result
+                            st.session_state['main_jadwal_logs'] = result.get('logs', [])
+                            if result.get('jadwal_conflicts'):
+                                st.session_state['main_jadwal_conflicts'] = result['jadwal_conflicts']
+                            st.success(f"✅ Jadwal Berhasil Disusun! ({len(jadwal_result)} entri)")
+                            st.rerun()
+                        else:
+                            # ❌ FAILED: AI returned nothing or empty list
+                            st.error("❌ **Jadwal Gagal Dibuat**")
+                            st.warning(
+                                "AI tidak menghasilkan jadwal yang valid. Kemungkinan penyebab:\n"
+                                "- Data guru/kelas terlalu sedikit\n"
+                                "- AI timeout (coba lagi)\n"
+                                "- Format output AI tidak terbaca"
+                            )
+                            # Show AI logs for debugging
+                            logs = result.get('logs', [])
+                            if logs:
+                                with st.expander("📋 Detail Log AI (untuk troubleshoot)", expanded=True):
+                                    for log in logs:
+                                        if any(x in log for x in ["Error", "Failed", "Critical", "error"]):
+                                            st.error(f"❌ {log}")
+                                        elif any(x in log for x in ["Warning", "warning"]):
+                                            st.warning(f"⚠️ {log}")
+                                        else:
+                                            st.info(f"🔹 {log}")
+                            else:
+                                st.info("💡 **Tips:** Pastikan Data Guru dan Data Kelas sudah diisi dengan benar, lalu coba klik Generate lagi.")
                     
                     except Exception as e:
-                        st.error(f"Terjadi kesalahan: {e}")
+                        st.error(f"❌ **Terjadi Kesalahan Teknis**")
+                        st.code(str(e), language="text")
+                        st.info("💡 Coba generate ulang. Jika terus terjadi, cek koneksi internet dan API Key Anda di Setup Wizard.")
+
+
 
         # --- DISPLAY RESULTS (Persisted) ---
         if 'main_jadwal_result' in st.session_state:
@@ -795,15 +780,16 @@ elif st.session_state['current_page'] == "Jadwal":
                 
                 # === SOFT CONFLICTS (WARNINGS) ===
             # === LOGS & STATUS ===
-            with st.expander("🎓 Detail Proses & Log AI", expanded=False):
-                if 'logs' in result:
-                    for log in result['logs']:
-                        if "Error" in log or "Failed" in log or "Critical" in log:
+            if 'main_jadwal_logs' in st.session_state:
+                with st.expander("🎓 Detail Proses & Log AI", expanded=False):
+                    for log in st.session_state['main_jadwal_logs']:
+                        if any(x in log for x in ["Error", "Failed", "Critical", "error"]):
                             st.error(f"❌ {log}")
-                        elif "Warning" in log:
+                        elif any(x in log for x in ["Warning", "warning"]):
                             st.warning(f"⚠️ {log}")
                         else:
                             st.info(f"🔹 {log}")
+
 
             if st.button("🗑️ Reset Jadwal"):
                 del st.session_state['main_jadwal_result']

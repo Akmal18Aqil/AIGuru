@@ -15,11 +15,14 @@ from google import genai
 from ai_guru.utils.security_utils import secrets
 
 
+from ai_guru.utils.path_utils import get_persistent_data_dir
+
+
 class APIKeyManager:
     """Manages API keys for the application with multi-tier support"""
     
     def __init__(self):
-        self.root_dir = Path(__file__).parent.parent.parent
+        self.root_dir = get_persistent_data_dir()
         self.config_path = self.root_dir / "config.json"
         self.env_path = self.root_dir / ".env"
         

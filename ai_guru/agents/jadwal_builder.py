@@ -18,7 +18,9 @@ def build_jadwal(state: AgentState) -> AgentState:
 
     try:
         logger.info("Generating School Schedule...")
-        llm = LLMFactory.get_llm(temperature=0.15)
+        # Jadwal generation is complex — large JSON arrays need more time than default 30s
+        llm = LLMFactory.get_llm(temperature=0.15, timeout=120.0)
+
 
         # Format input data
         teacher_data = json.dumps(state.get('jadwal_teachers', []), indent=2, ensure_ascii=False)
@@ -52,11 +54,18 @@ def build_jadwal(state: AgentState) -> AgentState:
             logger.error(f"Jadwal failed: Invalid AI output format.")
             state['logs'].append("Error: AI scheduler output was malformed.")
             
+    except ValueError as ve:
+        # extract_json raised a user-friendly ValueError — show it in logs
+        err_msg = str(ve)
+        logger.error(f"JSON parsing failed in build_jadwal: {err_msg}")
+        state['logs'].append(f"Error: {err_msg}")
+        
     except Exception as e:
         logger.exception(f"Unexpected error in build_jadwal: {str(e)}")
-        state['logs'].append(f"Critical error in schedule builder.")
+        state['logs'].append(f"Critical error in schedule builder: {str(e)}")
 
     return state
+
 
 
 def check_conflicts(state: AgentState, llm) -> AgentState:

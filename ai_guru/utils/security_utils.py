@@ -3,7 +3,7 @@ import base64
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from pathlib import Path
+from ai_guru.utils.path_utils import get_persistent_data_dir
 
 class SecretManager:
     """
@@ -14,7 +14,7 @@ class SecretManager:
     def __init__(self):
         # We need a stable salt. In a real desktop app, we might use machine ID.
         # Here we'll use a hidden salt file or a default if not present.
-        self.salt_file = Path(__file__).parent.parent.parent / ".salt"
+        self.salt_file = get_persistent_data_dir() / ".salt"
         if not self.salt_file.exists():
             with open(self.salt_file, "wb") as f:
                 f.write(os.urandom(16))

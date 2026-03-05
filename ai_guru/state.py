@@ -53,6 +53,9 @@ class AgentState(TypedDict):
     # Generated Outputs
     rpp: Optional[RPPData]
     questions: List[Question]
+    rpp_docx: Optional[bytes]      # Store generated DOCX bytes
+    soal_docx: Optional[bytes]     # Store generated DOCX bytes
+
     
     # ===== JADWAL FIELDS (all optional) =====
     jadwal_mode: Optional[bool]

@@ -6,12 +6,14 @@ class LLMFactory:
     """Factory to create LLM instances based on configuration."""
 
     @staticmethod
-    def get_llm(temperature: float = 0.5) -> BaseChatModel:
+    def get_llm(temperature: float = 0.5, timeout: float = 30.0) -> BaseChatModel:
         """
         Get the configured LLM instance.
         
         Args:
             temperature: The temperature for the LLM.
+            timeout: Request timeout in seconds. Use higher value (e.g. 120)
+                     for complex tasks like jadwal generation.
 
         Returns:
             An instantiated LangChain chat model.
@@ -40,7 +42,7 @@ class LLMFactory:
                 temperature=temperature,
                 google_api_key=api_key,
                 max_retries=3,
-                timeout=30.0
+                timeout=timeout
             )
             
         elif provider == 'OpenRouter':
@@ -51,7 +53,7 @@ class LLMFactory:
                 model="google/gemini-flash-1.5", 
                 temperature=temperature,
                 max_retries=3,
-                timeout=30.0,
+                timeout=timeout,
                 default_headers={
                     "HTTP-Referer": "https://siguru.app", # Required for OpenRouter
                     "X-Title": "SiGURU AI Assistant",
@@ -65,7 +67,7 @@ class LLMFactory:
                 model_name="llama-3.1-70b-versatile", # Updated model
                 temperature=temperature,
                 max_retries=3,
-                timeout=30.0
+                timeout=timeout
             )
             
         elif provider == 'Anthropic':
@@ -75,7 +77,7 @@ class LLMFactory:
                 model_name="claude-3-5-sonnet-20240620",
                 temperature=temperature,
                 max_retries=3,
-                timeout=30.0
+                timeout=timeout
             )
             
         elif provider == 'Custom Provider':
@@ -93,7 +95,7 @@ class LLMFactory:
                 model=model_name,
                 temperature=temperature,
                 max_retries=3,
-                timeout=30.0
+                timeout=timeout
             )
             
         else:
@@ -105,5 +107,5 @@ class LLMFactory:
                 temperature=temperature,
                 google_api_key=api_key,
                 max_retries=3,
-                timeout=30.0
+                timeout=timeout
             )
