@@ -47,7 +47,56 @@ st.markdown("""
         text-align: center;
         margin: 2rem 0;
     }
+    
+    /* Hide Streamlit Branding & Deploy Button */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    [data-testid="stAppDeployButton"] {display: none;}
+
+    /* === PAGE TRANSITIONS === */
+    .stApp {
+        animation: fadeIn 0.5s ease-out;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Loading overlay for navigation */
+    #nav-loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, #4A90E2, #357ABD, #4A90E2);
+        background-size: 200% 100%;
+        animation: navLoading 2s infinite linear;
+        z-index: 1000;
+        display: none;
+    }
+    
+    @keyframes navLoading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
 </style>
+
+<!-- Navigation Loading Bar -->
+<div id="nav-loading"></div>
+
+<script>
+    // Logic to show loading bar when buttons are clicked
+    const buttons = window.parent.document.querySelectorAll('button');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const loader = window.parent.document.getElementById('nav-loading');
+            if (loader) loader.style.display = 'block';
+        });
+    });
+</script>
 """, unsafe_allow_html=True)
 
 # Initialize API Manager

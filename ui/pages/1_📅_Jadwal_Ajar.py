@@ -26,6 +26,103 @@ if 'authenticated' not in st.session_state or not st.session_state['authenticate
 st.title("📅 Jadwal Ajar: Generator Jadwal Sekolah")
 st.markdown("Buat jadwal pelajaran untuk **seluruh sekolah** dengan AI.")
 
+# --- CUSTOM CSS ---
+st.markdown("""
+<style>
+    /* Hide Streamlit Branding & Deploy Button */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    [data-testid="stAppDeployButton"] {display: none;}
+    
+    /* === PAGE TRANSITIONS === */
+    .stApp {
+        animation: fadeIn 0.5s ease-out;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Loading overlay for navigation */
+    #nav-loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, #4A90E2, #357ABD, #4A90E2);
+        background-size: 200% 100%;
+        animation: navLoading 2s infinite linear;
+        z-index: 1000;
+        display: none;
+    }
+    
+    @keyframes navLoading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+</style>
+
+<!-- Navigation Loading Bar -->
+<div id="nav-loading"></div>
+
+<script>
+    // Logic to show loading bar when buttons are clicked
+    const buttons = window.parent.document.querySelectorAll('button');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const loader = window.parent.document.getElementById('nav-loading');
+            if (loader) loader.style.display = 'block';
+        });
+    });
+</script>
+    
+    /* === MODERN SHIMMER EFFECTS === */
+    .shimmer-container {
+        border-radius: 12px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.03);
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .shimmer-bar {
+        height: 14px;
+        margin-bottom: 12px;
+        background: linear-gradient(90deg, 
+            rgba(255,255,255, 0.03) 25%, 
+            rgba(255,255,255, 0.08) 50%, 
+            rgba(255,255,255, 0.03) 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite linear;
+        border-radius: 4px;
+    }
+    
+    .shimmer-title { height: 24px; width: 60%; margin-bottom: 24px; }
+    .shimmer-medium { width: 80%; }
+    
+    @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+</style>
+""", unsafe_allow_html=True)
+
+def render_skeleton():
+    """Render modern shimmer loading skeletons for schedule"""
+    st.markdown("### 🧠 AI sedang menyusun jadwal...")
+    for _ in range(5):
+        st.markdown("""
+        <div class="shimmer-container">
+            <div class="shimmer-bar shimmer-title"></div>
+            <div class="shimmer-bar"></div>
+            <div class="shimmer-bar shimmer-medium"></div>
+        </div>
+        """, unsafe_allow_html=True)
+
 # --- SIDEBAR: INPUT DATA ---
 with st.sidebar:
     st.header("⚙️ Konfigurasi")
@@ -170,7 +267,14 @@ if generate_btn:
         if availability_constraints:
             all_constraints += "\n\n## Ketersediaan Guru:\n" + "\n".join(f"- {c}" for c in availability_constraints)
         
-        with st.spinner("🧠 AI sedang menyusun jadwal... (1-2 menit)"):
+        # Create a placeholder in the Results tab area
+        tab1.empty() # Clear input tab partially to show focus
+        
+        with st.container():
+            placeholder = st.empty()
+            with placeholder.container():
+                render_skeleton()
+            
             # Build state
             state = {
                 "jadwal_mode": True,
@@ -191,6 +295,9 @@ if generate_btn:
             
             # Run agent
             result = build_jadwal(state)
+            
+            # Clear skeleton
+            placeholder.empty()
             
             # Store in session
             st.session_state['jadwal_result'] = result.get('jadwal_result', [])

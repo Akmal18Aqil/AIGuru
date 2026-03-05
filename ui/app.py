@@ -29,6 +29,31 @@ if not api_manager.is_setup_completed():
 
 # === HELPER FUNCTIONS FOR SMART CONFLICT FIX ===
 
+def render_skeleton(type="rpp"):
+    """Render modern shimmer loading skeletons"""
+    if type == "rpp":
+        st.markdown("""
+        <div class="shimmer-container">
+            <div class="shimmer-bar shimmer-title"></div>
+            <div class="shimmer-bar"></div>
+            <div class="shimmer-bar"></div>
+            <div class="shimmer-bar shimmer-medium"></div>
+            <br/>
+            <div class="shimmer-bar shimmer-title" style="width: 40%;"></div>
+            <div class="shimmer-bar"></div>
+            <div class="shimmer-bar shimmer-medium"></div>
+        </div>
+        """, unsafe_allow_html=True)
+    elif type == "soal":
+        for _ in range(3):
+            st.markdown("""
+            <div class="shimmer-container">
+                <div class="shimmer-bar shimmer-medium"></div>
+                <div class="shimmer-bar" style="width: 90%;"></div>
+                <div class="shimmer-bar shimmer-short"></div>
+            </div>
+            """, unsafe_allow_html=True)
+
 def render_smart_fix(conflict, guru, kelas_to_move, idx):
     """Render smart auto-fix options with validation"""
     from ai_guru.utils.scheduler_logic import find_available_slots
@@ -167,7 +192,97 @@ st.markdown("""
     .big-font {
         font-size: 20px !important;
     }
+    
+    /* === MODERN SHIMMER EFFECTS === */
+    .shimmer-container {
+        border-radius: 12px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.03);
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .shimmer-bar {
+        height: 14px;
+        margin-bottom: 12px;
+        background: linear-gradient(90deg, 
+            rgba(255,255,255, 0.03) 25%, 
+            rgba(255,255,255, 0.08) 50%, 
+            rgba(255,255,255, 0.03) 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite linear;
+        border-radius: 4px;
+    }
+    
+    .shimmer-title { height: 24px; width: 60%; margin-bottom: 24px; }
+    .shimmer-short { width: 40%; }
+    .shimmer-medium { width: 80%; }
+    
+    @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    
+    /* === PAGE TRANSITIONS === */
+    .stApp {
+        animation: fadeIn 0.5s ease-out;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Subtle slide for content */
+    [data-testid="stVerticalBlock"] > div:first-child {
+        animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Loading overlay for navigation */
+    #nav-loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, #4A90E2, #357ABD, #4A90E2);
+        background-size: 200% 100%;
+        animation: navLoading 2s infinite linear;
+        z-index: 1000;
+        display: none;
+    }
+    
+    @keyframes navLoading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+
+    /* Hide Streamlit Branding & Deploy Button */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    [data-testid="stAppDeployButton"] {display: none;}
 </style>
+
+<!-- Navigation Loading Bar -->
+<div id="nav-loading"></div>
+
+<script>
+    // Logic to show loading bar when buttons are clicked
+    const buttons = window.parent.document.querySelectorAll('button');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const loader = window.parent.document.getElementById('nav-loading');
+            if (loader) loader.style.display = 'block';
+        });
+    });
+</script>
 """, unsafe_allow_html=True)
 
 # --- STATE MANAGEMENT ---
@@ -385,20 +500,29 @@ elif st.session_state['current_page'] == "Modul Ajar":
                     st.switch_page("pages/0_⚙️_Setup.py")
             else:
                 os.environ["GOOGLE_API_KEY"] = api_key
-                with st.spinner("Sedang menyusun RPP..."):
-                    initial_state = {
-                        "topic": topic, "grade_level": jenjang, "class_level": class_level, "subject": subject,
-                        "admin_data": {"guru": guru, "nip": nip, "sekolah": sekolah, "kepsek": kepsek, "tahun_ajar": tahun_ajar},
-                        "source_text": "", "use_rag": False, "generation_mode": "rpp_only",
-                        "rpp": None, "questions": [], "status": "Running", "logs": []
-                    }
-                    final_state = app_graph.invoke(initial_state)
-                    
-                    if final_state.get('rpp'):
-                        st.session_state['main_rpp_result'] = final_state['rpp']
-                        st.session_state['main_rpp_docx'] = final_state.get('rpp_docx')
-                        st.session_state['main_rpp_logs'] = final_state.get('logs', [])
-                        st.success("RPP Selesai Disusun!")
+                # Create a placeholder for the skeleton
+                preview_placeholder = st.empty()
+                with preview_placeholder.container():
+                    render_skeleton("rpp")
+                
+                initial_state = {
+                    "topic": topic, "grade_level": jenjang, "class_level": class_level, "subject": subject,
+                    "admin_data": {"guru": guru, "nip": nip, "sekolah": sekolah, "kepsek": kepsek, "tahun_ajar": tahun_ajar},
+                    "source_text": "", "use_rag": False, "generation_mode": "rpp_only",
+                    "rpp": None, "questions": [], "status": "Running", "logs": []
+                }
+                
+                # Execute graph
+                final_state = app_graph.invoke(initial_state)
+                
+                # Clear the skeleton
+                preview_placeholder.empty()
+                
+                if final_state.get('rpp'):
+                    st.session_state['main_rpp_result'] = final_state['rpp']
+                    st.session_state['main_rpp_docx'] = final_state.get('rpp_docx')
+                    st.session_state['main_rpp_logs'] = final_state.get('logs', [])
+                    st.success("RPP Selesai Disusun!")
 
 
                 # === LOGS & STATUS (RPP) ===
@@ -473,30 +597,38 @@ elif st.session_state['current_page'] == "Generator Soal":
                     st.switch_page("pages/0_⚙️_Setup.py")
             else:
                 os.environ["GOOGLE_API_KEY"] = api_key
-                with st.spinner(f"Merumuskan {num_questions} soal... (Bisa butuh 1-2 menit)"):
-                    source_text = ""
-                    if uploaded_file and use_rag:
-                        from ai_guru.utils.path_utils import get_persistent_data_dir
-                        temp_path = get_persistent_data_dir() / "temp_upload"
-                        with open(temp_path, "wb") as f: f.write(uploaded_file.getbuffer())
-                        source_text = load_document_text(str(temp_path))
-                        
-                    initial_state = {
-                        "topic": topic, "grade_level": jenjang_soal, "class_level": class_level_soal, "subject": "-",
-                        "admin_data": {},
-                        "source_text": source_text, "use_rag": use_rag, "generation_mode": "soal_only",
-                        "num_questions": num_questions,
-                        "question_types": selected_types if selected_types else ["Pilihan Ganda"],
-                        "rpp": None, "questions": [], "status": "Running", "logs": []
-                    }
+                # Create a placeholder for the skeleton
+                soal_placeholder = st.empty()
+                with soal_placeholder.container():
+                    render_skeleton("soal")
+                
+                source_text = ""
+                if uploaded_file and use_rag:
+                    from ai_guru.utils.path_utils import get_persistent_data_dir
+                    temp_path = get_persistent_data_dir() / "temp_upload"
+                    with open(temp_path, "wb") as f: f.write(uploaded_file.getbuffer())
+                    source_text = load_document_text(str(temp_path))
                     
-                    final_state = app_graph.invoke(initial_state)
-                    
-                    if final_state.get('questions'):
-                        st.session_state['main_soal_result'] = final_state['questions']
-                        st.session_state['main_soal_docx'] = final_state.get('soal_docx')
-                        st.session_state['main_soal_logs'] = final_state.get('logs', [])
-                        st.success("Selesai Generasi Soal!")
+                initial_state = {
+                    "topic": topic, "grade_level": jenjang_soal, "class_level": class_level_soal, "subject": "-",
+                    "admin_data": {},
+                    "source_text": source_text, "use_rag": use_rag, "generation_mode": "soal_only",
+                    "num_questions": num_questions,
+                    "question_types": selected_types if selected_types else ["Pilihan Ganda"],
+                    "rpp": None, "questions": [], "status": "Running", "logs": []
+                }
+                
+                # Execute graph
+                final_state = app_graph.invoke(initial_state)
+                
+                # Clear the skeleton
+                soal_placeholder.empty()
+                
+                if final_state.get('questions'):
+                    st.session_state['main_soal_result'] = final_state['questions']
+                    st.session_state['main_soal_docx'] = final_state.get('soal_docx')
+                    st.session_state['main_soal_logs'] = final_state.get('logs', [])
+                    st.success("Selesai Generasi Soal!")
 
 
                 # === LOGS & STATUS (SOAL) ===
