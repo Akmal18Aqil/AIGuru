@@ -121,32 +121,17 @@ class APIKeyManager:
                 'provider': 'None'
             }
         
-        # Test if API key is valid
-        is_valid = self._test_api_key(
-            api_key, 
-            provider_config['provider'], 
-            provider_config['custom_base_url'], 
-            provider_config['custom_model_name']
-        )
+        # Assume API key is valid if it exists to prevent blocking 3-second network pings on UI render
+        config = self._load_config()
+        deployment_type = config.get('deployment_type', 'organization')
+        org_name = config.get('organization_name', 'Organisasi')
         
-        if is_valid:
-            config = self._load_config()
-            deployment_type = config.get('deployment_type', 'organization')
-            org_name = config.get('organization_name', 'Organisasi')
-            
-            return {
-                'active': True,
-                'type': f'Lisensi {org_name}' if deployment_type == 'organization' else 'Lisensi Individual',
-                'source': 'env',
-                'provider': provider_config['provider']
-            }
-        else:
-            return {
-                'active': False,
-                'type': 'API Key tidak valid',
-                'source': 'env',
-                'provider': provider_config['provider']
-            }
+        return {
+            'active': True,
+            'type': f'Lisensi {org_name}' if deployment_type == 'organization' else 'Lisensi Individual',
+            'source': 'env',
+            'provider': provider_config['provider']
+        }
     
     def save_organization_setup(self, api_key: str, organization_name: str, license_key: str = None, 
                                 provider: str = "Google Gemini", custom_base_url: str = "", 

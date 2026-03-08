@@ -7,12 +7,19 @@ from pathlib import Path
 # Add src to pythonpath so imports work
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from ui.utils.loading import render_loading_screen, hide_default_loaders
 from ai_guru.main_graph import app_graph
 from ai_guru.utils.licensing import LicenseManager
 from ai_guru.utils.document_loader import load_document_text
 from ai_guru.config.api_key_manager import APIKeyManager
 
+# 1. Professional Loading Screen
+render_loading_screen()
+
 st.set_page_config(page_title="SiGURU (AI Assistant)", layout="wide", page_icon="🎓")
+
+# 2. Hide annoying Streamlit default loading indicators
+hide_default_loaders()
 
 # Absolute path to project root (ui/app.py is inside ui/ subfolder)
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -20,14 +27,102 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 # Initialize API Key Manager
 api_manager = APIKeyManager()
 
-# Check if setup is completed - if not, redirect to setup page
-if not api_manager.is_setup_completed():
-    st.warning("⚙️ Aplikasi belum dikonfigurasi. Mengalihkan ke Setup Wizard...")
-    st.info("Silakan tunggu beberapa detik...")
-    st.switch_page("pages/0_⚙️_Setup.py")
+# --- STATE MANAGEMENT FOR BACKEND IO ---
+if 'setup_completed' not in st.session_state:
+    st.session_state['setup_completed'] = api_manager.is_setup_completed()
+
+# Check if setup is completed - if not, show setup wizard content
+if not st.session_state['setup_completed']:
+    if 'current_page' not in st.session_state:
+        st.session_state['current_page'] = "Setup"
+    elif st.session_state['current_page'] != "Setup":
+        st.warning("⚙️ Aplikasi belum dikonfigurasi. Mengalihkan ke Setup Wizard...")
+        st.session_state['current_page'] = "Setup"
+        st.rerun()
 
 
-# === HELPER FUNCTIONS FOR SMART CONFLICT FIX ===
+# === SETUP WIZARD COMPONENT ===
+def render_setup_wizard():
+    """Setup Wizard - First Time Configuration"""
+    if 'setup_step' not in st.session_state:
+        st.session_state['setup_step'] = 1
+    if 'deployment_type' not in st.session_state:
+        st.session_state['deployment_type'] = None
+
+    # ===== STEP 1: Welcome =====
+    if st.session_state['setup_step'] == 1:
+        st.markdown('<h1 style="text-align: center;">🎓 Selamat Datang di SiGURU!</h1>', unsafe_allow_html=True)
+        st.markdown('<p style="text-align: center; color: #888;">Asisten AI untuk Guru Indonesia</p>', unsafe_allow_html=True)
+        st.divider()
+        st.markdown("### Pilih Tipe Deployment")
+        st.info("Lisensi Organisasi: Satu API key untuk seluruh sekolah.")
+        deployment = st.radio("Tipe Deployment:", ["Lisensi Organisasi (Rekomendasi)", "Lisensi Individual (Coming Soon)"])
+        if st.button("Lanjutkan ➡️", type="primary", use_container_width=True):
+            if "Organisasi" in deployment:
+                st.session_state['deployment_type'] = 'organization'
+                st.session_state['setup_step'] = 2
+                st.rerun()
+    
+    # ===== STEP 2: License =====
+    elif st.session_state['setup_step'] == 2:
+        st.markdown('<h1 style="text-align: center;">🔐 Validasi Lisensi</h1>', unsafe_allow_html=True)
+        st.divider()
+        license_input = st.text_input("License Key", type="password", placeholder="SIGURU-XXXX-XXXX-XXXX")
+        st.caption("📝 Tips: Gunakan `DEV-MODE-123` untuk testing.")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("⬅️ Kembali", use_container_width=True):
+                st.session_state['setup_step'] = 1
+                st.rerun()
+        with col2:
+            if st.button("Validasi ✅", type="primary", use_container_width=True):
+                if license_input:
+                    with st.spinner("🔍 Memvalidasi..."):
+                        from ai_guru.utils.licensing import LicenseManager
+                        if LicenseManager().verify_license(license_input):
+                            st.session_state['license_key'] = license_input
+                            st.session_state['setup_step'] = 3
+                            st.rerun()
+                        else: st.error("License tidak valid!")
+                else: st.error("Wajib diisi!")
+
+    # ===== STEP 3: API Key =====
+    elif st.session_state['setup_step'] == 3:
+        st.markdown('<h1 style="text-align: center;">🔑 Setup API Key</h1>', unsafe_allow_html=True)
+        st.divider()
+        org_name = st.text_input("Nama Sekolah/Lembaga", placeholder="SDN 01 Jakarta")
+        provider = st.selectbox("Pilih AI Provider", ["Google Gemini", "OpenRouter", "Groq"])
+        api_key = st.text_input(f"Masukkan API Key ({provider})", type="password")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("⬅️ Kembali", use_container_width=True):
+                st.session_state['setup_step'] = 2
+                st.rerun()
+        with col2:
+            if st.button("Simpan ✅", type="primary", use_container_width=True):
+                if org_name and api_key:
+                    with st.spinner("🧪 Menyimpan..."):
+                        if api_manager.save_organization_setup(api_key=api_key, organization_name=org_name, license_key=st.session_state.get('license_key', ''), provider=provider):
+                            st.session_state['setup_step'] = 4
+                            st.session_state['org_name'] = org_name
+                            st.rerun()
+                        else: st.error("API Key Gagal divalidasi!")
+                else: st.error("Semua field wajib diisi!")
+
+    # ===== STEP 4: Success =====
+    elif st.session_state['setup_step'] == 4:
+        st.success("✅ Setup Berhasil!")
+        st.balloons()
+        st.markdown(f"### Selamat! SiGURU siap digunakan untuk {st.session_state.get('org_name', 'Lembaga Anda')}")
+        if st.button("🚀 Mulai Sekarang", type="primary", use_container_width=True):
+            # Update Cache before navigating
+            st.session_state['setup_completed'] = True
+            st.session_state['license_status'] = api_manager.get_license_status()
+            st.session_state['api_status'] = api_manager.get_status()
+            
+            st.session_state['setup_step'] = 1
+            st.session_state['current_page'] = "Home"
+            st.rerun()
 
 def render_skeleton(type="rpp"):
     """Render modern shimmer loading skeletons"""
@@ -224,76 +319,38 @@ st.markdown("""
         100% { background-position: -200% 0; }
     }
     
-    /* === PAGE TRANSITIONS === */
-    .stApp {
-        animation: fadeIn 0.5s ease-out;
-    }
-    
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    
-    /* Subtle slide for content */
-    [data-testid="stVerticalBlock"] > div:first-child {
-        animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    
-    @keyframes slideUp {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    
-    /* Loading overlay for navigation */
-    #nav-loading {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 3px;
-        background: linear-gradient(90deg, #4A90E2, #357ABD, #4A90E2);
-        background-size: 200% 100%;
-        animation: navLoading 2s infinite linear;
-        z-index: 1000;
-        display: none;
-    }
-    
-    @keyframes navLoading {
-        0% { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
-    }
-
     /* Hide Streamlit Branding & Deploy Button */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     [data-testid="stAppDeployButton"] {display: none;}
 </style>
-
-<!-- Navigation Loading Bar -->
-<div id="nav-loading"></div>
-
-<script>
-    // Logic to show loading bar when buttons are clicked
-    const buttons = window.parent.document.querySelectorAll('button');
-    buttons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const loader = window.parent.document.getElementById('nav-loading');
-            if (loader) loader.style.display = 'block';
-        });
-    });
-</script>
 """, unsafe_allow_html=True)
 
 # --- STATE MANAGEMENT ---
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
+
+def navigate_to(page_name):
+    """Helper function to update state and URL, then rerun."""
+    st.session_state['current_page'] = page_name
+    st.query_params.update(p=page_name)
+    st.rerun()
+
 if 'current_page' not in st.session_state:
-    st.session_state['current_page'] = "Home"
+    query_params = st.query_params
+    if 'p' in query_params:
+        st.session_state['current_page'] = query_params['p']
+    else:
+        st.session_state['current_page'] = "Home"
+        st.query_params.update(p="Home")
 
 # --- LICENSE CHECK (NEW!) ---
 # This happens AFTER setup check but BEFORE user authentication
-license_status = api_manager.get_license_status()
+if 'license_status' not in st.session_state:
+    st.session_state['license_status'] = api_manager.get_license_status()
+
+license_status = st.session_state['license_status']
 
 if not license_status['has_license']:
     st.error("❌ **License Key Tidak Ditemukan!**")
@@ -303,7 +360,7 @@ if not license_status['has_license']:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button("⚙️ Buka Setup Wizard", type="primary"):
-            st.switch_page("pages/0_⚙️_Setup.py")
+            navigate_to("Setup")
     
     st.markdown("---")
     st.markdown("""
@@ -344,7 +401,11 @@ if not license_status['is_valid']:
             # Reset setup to re-enter license
             if st.button("Konfirmasi Reset Setup?", type="secondary"):
                 api_manager.reset_setup()
-                st.switch_page("pages/0_⚙️_Setup.py")
+                # Clear variables triggering validation
+                st.session_state.pop('setup_completed', None)
+                st.session_state.pop('license_status', None)
+                st.session_state.pop('api_status', None)
+                navigate_to("Setup")
     
     st.stop()
 
@@ -381,13 +442,16 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     
     # API Key Status Indicator (More compact)
-    api_status = api_manager.get_status()
+    if 'api_status' not in st.session_state:
+        st.session_state['api_status'] = api_manager.get_status()
+        
+    api_status = st.session_state['api_status']
     if api_status['active']:
         st.caption(f"🟢 API {api_status['type']} Active")
     else:
         st.error("⚠️ API Key inactive")
         if st.button("⚙️ Setup Ulang"):
-            st.switch_page("pages/0_⚙️_Setup.py")
+            navigate_to("Setup")
     
     st.divider()
     
@@ -395,33 +459,29 @@ with st.sidebar:
     if st.button("🏠 Beranda", 
                  type="primary" if st.session_state['current_page'] == "Home" else "secondary",
                  use_container_width=True):
-        st.session_state['current_page'] = "Home"
-        st.rerun()
+        navigate_to("Home")
         
     if st.button("📚 Generator RPP", 
                  type="primary" if st.session_state['current_page'] == "Modul Ajar" else "secondary",
                  use_container_width=True):
-        st.session_state['current_page'] = "Modul Ajar"
-        st.rerun()
+        navigate_to("Modul Ajar")
         
     if st.button("📝 Generator Soal", 
                  type="primary" if st.session_state['current_page'] == "Generator Soal" else "secondary",
                  use_container_width=True):
-        st.session_state['current_page'] = "Generator Soal"
-        st.rerun()
+        navigate_to("Generator Soal")
         
     if st.button("📅 Jadwal Pelajaran", 
                  type="primary" if st.session_state['current_page'] == "Jadwal" else "secondary",
                  use_container_width=True):
-        st.session_state['current_page'] = "Jadwal"
-        st.rerun()
+        navigate_to("Jadwal")
         
     st.divider()
     
     # Footer Section
     with st.expander("⚙️ Pengaturan & Info"):
         if st.button("🔧 Setup Wizard"):
-            st.switch_page("pages/0_⚙️_Setup.py")
+            navigate_to("Setup")
         
         # Troubleshooting Log Viewer
         if st.checkbox("🔍 Tampilkan Debug Log"):
@@ -439,8 +499,12 @@ with st.sidebar:
         st.caption("Versi: 1.1.0 (Prod-Ready)")
         st.caption("© 2024 SiGURU AI")
 
+# --- PAGE: SETUP ---
+if st.session_state['current_page'] == "Setup":
+    render_setup_wizard()
+
 # --- PAGE: HOME ---
-if st.session_state['current_page'] == "Home":
+elif st.session_state['current_page'] == "Home":
     st.title("Selamat Datang di SiGURU")
     st.markdown("### Asisten Cerdas untuk Guru Hebat")
     
@@ -448,18 +512,15 @@ if st.session_state['current_page'] == "Home":
     with col1:
         st.info("### 📚 RPP Builder\nBuat RPP Otomatis Kurikulum Merdeka.")
         if st.button("Buka RPP Builder"):
-            st.session_state['current_page'] = "Modul Ajar"
-            st.rerun()
+            navigate_to("Modul Ajar")
         st.info("### 📝 Generator Soal\nBuat / Remix Soal Ujian dengan AI.")
         if st.button("Buka Generator Soal"):
-            st.session_state['current_page'] = "Generator Soal"
-            st.rerun()
+            navigate_to("Generator Soal")
             
     with col2:
         st.success("### 📅 Smart Scheduler\nSusun jadwal pelajaran anti-bentrok untuk seluruh sekolah.")
         if st.button("Buka Scheduler"):
-            st.session_state['current_page'] = "Jadwal"
-            st.rerun()
+            navigate_to("Jadwal")
 
 # --- PAGE: MODUL AJAR (RPP ONLY) ---
 elif st.session_state['current_page'] == "Modul Ajar":
@@ -497,7 +558,7 @@ elif st.session_state['current_page'] == "Modul Ajar":
             if not api_key:
                 st.error("API Key tidak ditemukan! Silakan ke halaman Setup.")
                 if st.button("⚙️ Buka Setup", key="setup_rpp"):
-                    st.switch_page("pages/0_⚙️_Setup.py")
+                    navigate_to("Setup")
             else:
                 os.environ["GOOGLE_API_KEY"] = api_key
                 # Create a placeholder for the skeleton
@@ -594,7 +655,7 @@ elif st.session_state['current_page'] == "Generator Soal":
             if not api_key:
                 st.error("API Key tidak ditemukan! Silakan ke halaman Setup.")
                 if st.button("⚙️ Buka Setup", key="setup_soal"):
-                    st.switch_page("pages/0_⚙️_Setup.py")
+                    navigate_to("Setup")
             else:
                 os.environ["GOOGLE_API_KEY"] = api_key
                 # Create a placeholder for the skeleton
@@ -667,8 +728,8 @@ elif st.session_state['current_page'] == "Jadwal":
     with tabs[0]:
         st.info("Masukkan daftar guru, mata pelajaran yang diampu, dan beban jam.")
         
-        if 'df_guru' not in st.session_state:
-            st.session_state['df_guru'] = pd.DataFrame(
+        if 'base_df_guru' not in st.session_state:
+            st.session_state['base_df_guru'] = pd.DataFrame(
                 [
                     {"Nama": "Pak Ahmad", "Mapel": "Matematika", "Jam/Minggu": 24},
                     {"Nama": "Bu Siti", "Mapel": "IPA", "Jam/Minggu": 20},
@@ -678,16 +739,17 @@ elif st.session_state['current_page'] == "Jadwal":
                 ]
             )
             
-        st.session_state['df_guru'] = st.data_editor(
-            st.session_state['df_guru'], 
+        st.session_state['edited_df_guru'] = st.data_editor(
+            st.session_state['base_df_guru'], 
             num_rows="dynamic", 
-            use_container_width=True
+            use_container_width=True,
+            key="editor_guru"
         )
         
     with tabs[1]:
         st.info("Daftar Kelas dan kuota jam per minggu.")
-        if 'df_kelas' not in st.session_state:
-            st.session_state['df_kelas'] = pd.DataFrame(
+        if 'base_df_kelas' not in st.session_state:
+            st.session_state['base_df_kelas'] = pd.DataFrame(
                 [
                     {"Kelas": "VII-A", "Wali Kelas": "Pak Ahmad"},
                     {"Kelas": "VII-B", "Wali Kelas": "Bu Siti"},
@@ -697,10 +759,11 @@ elif st.session_state['current_page'] == "Jadwal":
                     {"Kelas": "IX-B", "Wali Kelas": "-"},
                 ]
             )
-        st.session_state['df_kelas'] = st.data_editor(
-            st.session_state['df_kelas'], 
+        st.session_state['edited_df_kelas'] = st.data_editor(
+            st.session_state['base_df_kelas'], 
             num_rows="dynamic", 
-            use_container_width=True
+            use_container_width=True,
+            key="editor_kelas"
         )
 
     with tabs[2]:
@@ -736,19 +799,19 @@ elif st.session_state['current_page'] == "Jadwal":
         with col_action:
             st.write("### Siap Generate?")
             run_btn = st.button("⚡ Generate Jadwal Otomatis", type="primary")
-        
+
         if run_btn:
             # Get API key from manager
             api_key = api_manager.get_api_key()
             if not api_key:
                 st.error("API Key tidak ditemukan! Silakan ke halaman Setup.")
                 if st.button("⚙️ Buka Setup"):
-                    st.switch_page("pages/0_⚙️_Setup.py")
+                    navigate_to("Setup")
             else:
                 os.environ["GOOGLE_API_KEY"] = api_key
                 # Convert DataFrames to JSON-compatible lists
-                teachers = st.session_state['df_guru'].to_dict('records')
-                classes = st.session_state['df_kelas'].to_dict('records')
+                teachers = st.session_state['edited_df_guru'].to_dict('records')
+                classes = st.session_state['edited_df_kelas'].to_dict('records')
                 
                 with st.spinner("AI sedang menyusun jadwal... (Bisa 1-3 menit)"):
                     # State for Jadwal
